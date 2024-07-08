@@ -1,0 +1,72 @@
+{
+  "hyperparameters": [
+    {
+      "name": "wA",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 100.0,
+      "default": 50.0
+    },
+    {
+      "name": "wB",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 100.0,
+      "default": 50.0
+    },
+    {
+      "name": "wC",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 100.0,
+      "default": 50.0
+    },
+    {
+      "name": "wD",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 100.0,
+      "default": 50.0
+    },
+    {
+      "name": "wE",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 100.0,
+      "default": 50.0
+    },
+    {
+      "name": "wF",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 100.0,
+      "default": 50.0
+    },
+    {
+      "name": "wG",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 100.0,
+      "default": 50.0
+    },
+    {
+      "name": "wH",
+      "type": "uniform_float",
+      "log": false,
+      "lower": 0.0,
+      "upper": 100.0,
+      "default": 50.0
+    }
+  ],
+  "conditions": [],
+  "forbiddens": [],
+  "python_module_version": "0.6.1",
+  "json_format_version": 0.4
+}
