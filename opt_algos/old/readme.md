@@ -1,0 +1,1 @@
+This directory contains an old attempt at SMAC. It's mostly replicated in the latest code, except for one feature - this notebook can plot individual hyperband brackets. The more general code cannot, because these brackets do not apply to all algos.
