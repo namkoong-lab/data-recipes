@@ -3,10 +3,9 @@ import time
 import traceback
 
 import init_path
+import utils.misc_utils as mscu
 from datasets import load_dataset
 from huggingface_hub import login
-
-import utils.misc_utils as mscu
 from utils.global_variables import ANON_GB, GB
 
 
@@ -51,7 +50,7 @@ if __name__ == "__main__":
     args = get_args()
     logger = mscu.get_logger(add_console=True)
     logger.info("Hi")
-    import pdb; pdb.set_trace()  # fmt: skip
+
     mscu.display_args(args, logger)
 
     main(args, logger)

@@ -1,11 +1,10 @@
 from typing import Dict, List
 
 import numpy as np
+import utils.misc_utils as mscu
 from datasets import load_dataset
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
-import utils.misc_utils as mscu
 from utils.global_variables import GB
 
 
@@ -36,7 +35,7 @@ class Subset(Dataset):
 
 
 def get_slimpajama_subset_indices_folder(dataset_name: str, split: str) -> str:
-    return f"{GB["scratch_folder"]}/slimpajama_subset_indices/{dataset_name}/{split}"
+    return f"{GB['scratch_folder']}/slimpajama_subset_indices/{dataset_name}/{split}"
 
 
 def compute_slimpajama_subdatasets(dataset: Dataset) -> Dict[str, List[int]]:
@@ -77,6 +76,7 @@ def get_slimpajama_subdataset(
     folder = get_slimpajama_subset_indices_folder(dataset_name, split)
     subset_indices = np.load(f"{folder}/{subset_name}.npy")
     return Subset(dataset, subset_indices.tolist())
+
 
 def subsample_dataset(dataset, n_samples, seed=42):
     """Subsample the dataset to n_samples."""

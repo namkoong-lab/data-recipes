@@ -10,10 +10,9 @@ import argparse
 
 import init_path
 import numpy as np
-from datasets import load_dataset
-
 import utils.data_utils as datu
 import utils.misc_utils as mscu
+from datasets import load_dataset
 from utils.global_variables import GB
 
 
@@ -56,7 +55,9 @@ def main(args, logger):
 
 if __name__ == "__main__":
     args = get_args()
-    log_folder = f"{GB["scratch_folder"]}/slimpajama_subset_indices/{args.dataset_name}/"
+    log_folder = (
+        f"{GB['scratch_folder']}/slimpajama_subset_indices/{args.dataset_name}/"
+    )
     mscu.make_folder(log_folder)
     logger = mscu.get_logger(
         add_console=True, filename=f"{log_folder}/compute_slimpajama_subset_indices.log"
