@@ -2,6 +2,8 @@
 
 This folder provides a Bayesian Optimization test bed. It defines two kinds of objects - benchmarks, which provide functions to be optimized, and optimizers, which actually do the optimization.
 
+See `opt_ideas.md` for some other optimization algo ideas.
+
 ## Folder structure
 
 This folder includes two files
