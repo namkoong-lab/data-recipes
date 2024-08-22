@@ -20,7 +20,7 @@ Three comments:
 
   - Step (4) does a lot of heavy lifting - in reality, what we have here is a dynamic program in which the choice made in every period (what point to observe) is the decision, and the value of the function at that point is the reward. It's hard to solve the full DP here, so people use all kinds of Heuristics. For example:
     * "Thompson Sampling" - generate one realization of $f$ from the posterior, and choose the maximum point in that realization as the next point to observe
-    * "Expected Improvement" - Let $f^*$ be the current best objective value function; pick our new point $x^\prime \in \mathcal{A}$ to maximize $\mathbb{E} \left[ (f(x^\prime) - f^*)^+ \right]$, where the expctation is over the posterior
+    * "Expected Improvement" - Let $f^\star$ be the current best objective value function; pick our new point $x^\prime \in \mathcal{A}$ to maximize $\mathbb{E} \left[ (f(x^\prime) - f^\star)^+ \right]$, where the expctation is over the posterior
 
   - There is one final complication - in some cases, we get to choose how much to "invest" into an evaluation of $f$. We can either spend a long time to get a very accurate (high fidelity) value of $f(x)$, or spend less time to get a less accurate (low fidelity) value. In the hypermarater tuning example, a low fidelity estimate of $f(x)$ might be obtained by only training for very few epochs or on very few data points.
 
