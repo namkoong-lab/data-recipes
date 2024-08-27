@@ -8,7 +8,7 @@ In Bayesian Optimization, we want to maximize a function $f(x)$ that is very exp
 
 In its most general form, the framework looks something like this:
   1. Place a prior on the function $f$ (for example, a Gaussian process prior)
-  2. At every step in the algorithm, use all points $(x_1, f(x_1)), \cdots, (x_n, f(x_n))$ observed so far to find a posterior probability distribution on $f$ (for example, a Guassian process with posterior mean and variance functions)
+  2. At every step in the algorithm, use all points $(x_1, f(x_1)), \cdots, (x_n, f(x_n))$ observed so far to find a posterior probability distribution on $f$ (for example, a Gaussian process with posterior mean and variance functions)
   3. Using this posterior, we can find the posterior distribution of $f(x^\prime)$ for every $x^\prime \in \mathcal{A}$. 
   4. Use this posterior distribution to find the point in $\mathcal{A}$ that would be most valuable to observe next (see below)
   5. Observe it and repeat.
@@ -22,7 +22,7 @@ Three comments:
     * "Thompson Sampling" - generate one realization of $f$ from the posterior, and choose the maximum point in that realization as the next point to observe
     * "Expected Improvement" - Let $f^\star$ be the current best objective value function; pick our new point $x^\prime \in \mathcal{A}$ to maximize $\mathbb{E} \left[ (f(x^\prime) - f^\star)^+ \right]$, where the expctation is over the posterior
 
-  - There is one final complication - in some cases, we get to choose how much to "invest" into an evaluation of $f$. We can either spend a long time to get a very accurate (high fidelity) value of $f(x)$, or spend less time to get a less accurate (low fidelity) value. In the hypermarater tuning example, a low fidelity estimate of $f(x)$ might be obtained by only training for very few epochs or on very few data points.
+  - There is one final complication - in some cases, we get to choose how much to "invest" into an evaluation of $f$. We can either spend a long time to get a very accurate (high fidelity) value of $f(x)$, or spend less time to get a less accurate (low fidelity) value. In the hyperparameter tuning example, a low fidelity estimate of $f(x)$ might be obtained by only training for very few epochs or on very few data points.
 
     There are all kinds of techniques developed to handle this kind of "multi fidelity Bayesian optimization" - in particular, they start evaluating $f(x^\prime)$ for our new point with low fidelity, and "abort" it if it's not looking good.
 
