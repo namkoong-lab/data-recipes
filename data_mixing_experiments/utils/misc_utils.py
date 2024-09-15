@@ -109,3 +109,8 @@ def idx2onehot(label_idc, num_labels):
 def display_args(args, logger=None):
     print_f = print if logger is None else logger.info
     print_f(f"Arguments: {json.dumps(vars(args), indent=2)}")
+
+
+def set_hf_cache(cache_dir):
+    os.environ["HF_HOME"] = cache_dir
+    os.environ["HF_DATASETS_CACHE"] = cache_dir
