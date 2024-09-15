@@ -98,31 +98,6 @@ SNAPSHOTS = [
 
 def get_args():
     parser = argparse.ArgumentParser(description="Download RedPajama dataset")
-    parser.add_argument(
-        "--name",
-        type=str,
-        default="default",
-        choices=["default", "sample", "sample-100B", "sample-10B", "sample-1T"],
-        help="Different types of RedPajama datasets",
-    )
-    parser.add_argument(
-        "--partition",
-        type=str,
-        default="head_middle",
-        choices=["head_middle", "tail"],
-    )
-    parser.add_argument(
-        "--snapshot",
-        type=str,
-        default="2023-14",
-        choices=SNAPSHOTS,
-    )
-    parser.add_argument(
-        "--language",
-        type=str,
-        default="en",
-        choices=["en", "de", "fr", "es", "it"],
-    )
     parser.add_argument("--simple_load", type=mscu.boolean, default=False)
     return parser.parse_args()
 
@@ -131,23 +106,10 @@ def main(args, logger):
     login(token=ANON_GB["hf_token"])  # To avoid rate limiting during download
 
     if args.simple_load:
-        if args.name == "default":
-            ds = load_dataset(
-                "togethercomputer/RedPajama-Data-V2",
-                name=args.name,
-                partition=args.partition,
-                snapshots=[args.snapshot],
-                languages=[args.language],
-                cache_dir=GB["dataset_path"],
-                trust_remote_code=True,
-            )
-        else:
-            ds = load_dataset(
-                "togethercomputer/RedPajama-Data-V2",
-                name=args.name,
-                cache_dir=GB["dataset_path"],
-                trust_remote_code=True,
-            )
+        ds = load_dataset(
+            "togethercomputer/RedPajama-Data-1T",
+            cache_dir=GB["dataset_path"],
+        )
         import pdb; pdb.set_trace()  # fmt: skip
     else:
         WAIT_TIME = 30
@@ -156,23 +118,16 @@ def main(args, logger):
         ds = None
         while ds is None:
             try:
-                if args.name == "default":
-                    ds = load_dataset(
-                        "togethercomputer/RedPajama-Data-V2",
-                        name="default",
-                        partition=args.partition,
-                        snapshots=[args.snapshot],
-                        languages=[args.language],
-                        cache_dir=GB["dataset_path"],
-                        trust_remote_code=True,
-                    )
-                else:
-                    ds = load_dataset(
-                        "togethercomputer/RedPajama-Data-V2",
-                        name=args.name,
-                        cache_dir=GB["dataset_path"],
-                        trust_remote_code=True,
-                    )
+                ds = load_dataset(
+                    "togethercomputer/RedPajama-Data-1T",
+                    "default",
+                    cache_dir=GB["dataset_path"],
+                )
+                # ds = load_dataset(
+                #     "togethercomputer/RedPajama-Data-V2",
+                #     name="sample",
+                #     cache_dir=GB["dataset_path"],
+                # )
             except Exception as e:
                 logger.info(f"Traceback: {traceback.format_exc()}")
                 logger.info(f"Waiting for {WAIT_TIME} seconds before retrying...")
@@ -185,17 +140,11 @@ def main(args, logger):
 
 if __name__ == "__main__":
     args = get_args()
-    log_folder = (
-        f"{init_path.PROJ_ROOT}/scratch/redpajama_download_logs"
-        f"/language={args.language}"
-    )
+    log_folder = f"{init_path.PROJ_ROOT}/scratch/redpajama_download_logs"
     mscu.make_folder(log_folder)
-    log_filename = (
-        f"{log_folder}/snapshot={args.snapshot}_partition={args.partition}.log"
-    )
+    log_filename = f"{log_folder}/download_redpajama.log"
     logger = mscu.get_logger(add_console=True, filename=log_filename)
 
     mscu.display_args(args, logger)
 
-    mscu.set_hf_cache(GB["dataset_path"])
     main(args, logger)
