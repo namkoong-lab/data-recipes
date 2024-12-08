@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import numpy as np
+import psutil
 import torch
 
 PROJ_NAME = "data_mixing"
@@ -32,7 +33,7 @@ def get_logger(level=logging.INFO, filename=None, add_console=True):
         logger.addHandler(console_handler)
 
     if filename is not None:
-        file_handler = logging.FileHandler(filename, mode="w")
+        file_handler = logging.FileHandler(filename, mode="a")
         log_formatter = logging.Formatter(fmt_str)
         file_handler.setFormatter(log_formatter)
         logger.addHandler(file_handler)
@@ -114,3 +115,72 @@ def display_args(args, logger=None):
 def set_hf_cache(cache_dir):
     os.environ["HF_HOME"] = cache_dir
     os.environ["HF_DATASETS_CACHE"] = cache_dir
+
+
+def pretty_number(num):
+    # Write number in M, B, T format
+    num = float(num)
+    if abs(num) < 1e6:
+        return f"{num:.2f}"
+    elif abs(num) < 1e9:
+        return f"{num/1e6:.2f}M"
+    elif abs(num) < 1e12:
+        return f"{num/1e9:.2f}B"
+    else:
+        return f"{num/1e12:.2f}T"
+
+
+def json_dump(data, path):
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def get_memory_usage():
+    """Get current memory usage in GB"""
+    process = psutil.Process(os.getpid())
+    memory_gb = process.memory_info().rss / (1024 * 1024 * 1024)  # Convert bytes to GB
+    return memory_gb
+
+
+def log_memory(message=""):
+    """Print memory usage with optional message"""
+    memory_gb = get_memory_usage()
+    print(f"Memory Usage {message}: {memory_gb:.2f} GB")
+
+
+def round_with_same_sum(values):
+    target = round(sum(values))
+    rounded = np.round(values).astype(int)
+
+    if sum(rounded) == target:
+        return rounded
+
+    sum_diff = sum(rounded) - target
+    diffs = rounded - values
+
+    if sum_diff > 0:
+        # Round down
+        cands = np.where(diffs > 0)[0]
+        cands = cands[np.argsort(diffs[cands])][::-1]
+        rounded[cands[:sum_diff]] -= 1
+    else:
+        cands = np.where(diffs < 0)[0]
+        cands = cands[np.argsort(diffs[cands])]
+        rounded[cands[: abs(sum_diff)]] += 1
+    return rounded
+
+
+def lprint(message, logger, level=logging.INFO):
+    if type(level) == str:
+        level = level.upper()
+        level = logging.getLevelName(level)
+
+    if logger is None:
+        print(message)
+    else:
+        logger.log(level, message)
+
+
+def print_numpy_memory(arr, prefix="", logger=None):
+    """Print memory usage of a numpy array"""
+    lprint(f"{prefix} Memory usage: {arr.nbytes / (1024 ** 3)} GB", logger=logger)
