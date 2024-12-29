@@ -184,3 +184,30 @@ def lprint(message, logger, level=logging.INFO):
 def print_numpy_memory(arr, prefix="", logger=None):
     """Print memory usage of a numpy array"""
     lprint(f"{prefix} Memory usage: {arr.nbytes / (1024 ** 3)} GB", logger=logger)
+
+
+def distribute_jobs(total_jobs, num_workers, return_indices=True):
+    """Distribute total_jobs to num_workers"""
+    jobs_per_worker = total_jobs // num_workers
+    remaining_jobs = total_jobs % num_workers
+
+    worker_jobs = [jobs_per_worker] * num_workers
+    for i in range(remaining_jobs):
+        worker_jobs[i] += 1
+
+    if not return_indices:
+        return worker_jobs
+
+    worker_indices = []
+    start_idx = 0
+    for wj in worker_jobs:
+        worker_indices.append((start_idx, start_idx + wj))
+        start_idx += wj
+    return worker_indices
+
+
+def get_time():
+    """Get current time in yyyy/mm/dd hh:mm:ss format"""
+    import datetime
+
+    return datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
