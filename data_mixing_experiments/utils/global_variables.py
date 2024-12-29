@@ -45,22 +45,64 @@ GB = {
             },
         },
     },
-    "model_params": {
+    "SlimPajamaPaddingPercentage": {
+        "RedPajamaCommonCrawl": 0.1775,
+        "RedPajamaC4": 0.5579,
+        "RedPajamaWikipedia": 0.3074,
+        "RedPajamaStackExchange": 0.3579,
+        "RedPajamaGithub": 0.1763,
+        "RedPajamaArXiv": 0.0139,
+        "RedPajamaBook": 0.0023,
+    },
+    "training_params": {
         "1B": {
-            "gpt_n_layer": 16,
-            "gpt_n_head": 16,
-            "gpt_n_embd": 2048,
-        },  # Actually 0.9B
-        "100M": {
-            "gpt_n_layer": 8,
-            "gpt_n_head": 8,
-            "gpt_n_embd": 1024,
-        },  # Actually 153M
-        "10M": {
-            "gpt_n_layer": 4,
-            "gpt_n_head": 4,
-            "gpt_n_embd": 512,
-        },  # Actually 39M
+            "d_model": 2048,
+            "n_heads": 16,
+            "n_layers": 16,
+            "mlp_ratio": 8,
+            "num_documents": 20_000,
+            "global_train_batch_size": 1024,
+            "device_train_microbatch_size": 18,
+            "device_eval_batch_size": 60,
+        },
+        "700M": {
+            "d_model": 1536,
+            "n_heads": 16,
+            "n_layers": 16,
+            "mlp_ratio": 8,
+        },
+        "300M": {
+            "d_model": 1024,
+            "n_heads": 16,
+            "n_layers": 16,
+            "mlp_ratio": 8,
+            "num_documents": 10_000,
+            "global_train_batch_size": 512,
+            "device_train_microbatch_size": 32,
+            "device_eval_batch_size": 80,
+        },
+        "150M": {
+            "d_model": 768,
+            "n_heads": 12,
+            "n_layers": 12,
+            "mlp_ratio": 8,
+        },
+        "60M": {
+            "d_model": 512,
+            "n_heads": 8,
+            "n_layers": 8,
+            "mlp_ratio": 8,
+        },
+        "20M": {
+            "d_model": 256,
+            "n_heads": 8,
+            "n_layers": 8,
+            "mlp_ratio": 8,
+            "num_documents": 10_000,
+            "global_train_batch_size": 512,
+            "device_train_microbatch_size": 64,
+            "device_eval_batch_size": 128,
+        },
     },
 }
 
@@ -71,4 +113,7 @@ ANON_GB = {
 
 print(f"*" * 84)
 print(f"Accessing Global Variables:\n{json.dumps(GB, indent=2)}")
+print(f"*" * 84)
+print(f"*" * 84)
+print(f"*" * 84)
 print(f"*" * 84)
