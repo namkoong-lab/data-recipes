@@ -1,0 +1,22 @@
+{
+    "_wandb": {},
+    "batch_size": 64,
+    "device": 7,
+    "dropout_rate": 0.1,
+    "epochs": 100,
+    "feature_groups": [
+        "token_probs",
+        "model_arch",
+        "training"
+    ],
+    "hidden_size": 64,
+    "learning_rate": 0.001,
+    "normalize_data": true,
+    "num_layers": 3,
+    "r2_eval_frequency": 1,
+    "save_checkpoint_frequency": 0,
+    "seed": 43,
+    "split_by_size": false,
+    "split_type": "single_step_15000_split",
+    "weight_decay": 0.01
+}
