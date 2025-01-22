@@ -9,7 +9,6 @@ benchmarks = {"DataModel": benchmarks.DataModelBenchmark}
 
 optimizers = {
     "SMAC": optimizers.SMACOptimizer,
-    "BOCA": optimizers.BOCAOptimizer,
     "RandomSearch": optimizers.RandomSearchOptimizer,
     "GridSearch": optimizers.GridSearchOptimizer,
 }
