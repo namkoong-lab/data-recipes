@@ -335,14 +335,16 @@ class LemurBenchmark(ConstantFunctionBenchmarkMixin):
 class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
     """Create a data model benchmark that is compatible with 1D and 2D fidelity space"""
 
-    def __init__(self):
-        # Set the search space and budget space
+    def __init__(self, metric_index=0):
+        """Metric index defines which metric to use for the data model"""
+        self.metric_index = metric_index
 
+        # Set the search space and budget space
         # Logits for the 5 categories
         self.search_space = [[-10, 10] for i in range(5)]
         self.budget_space = [1, 196]
 
-        checkpoint_path = f"/mnt/home/tyen/data-recipes/opt_algos/data_models/20250112_111946_bvbk61r9"
+        checkpoint_path = f"/Users/michi/Documents/tyen/Academics/Research/DRO/Projects/DataMixture/data-recipes/opt_algos/data_models/20250112_111946_bvbk61r9"
         self.model, self.norm_stats = dm.load_model_for_prediction(checkpoint_path)
 
         super().__init__()
@@ -356,11 +358,11 @@ class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
         model_x[8] = 100 * z  # Training steps
 
         # Set other features to 1B features
-        model_x[5] = 20  # Model size in millions
-        model_x[6] = 256  # d_model dimension
-        model_x[7] = 8  # Number of attention heads
+        model_x[5] = 1000  # Model size in millions
+        model_x[6] = 2048  # d_model dimension
+        model_x[7] = 16  # Number of attention heads
 
         pred = dm.predict(
             self.model, model_x.reshape(1, -1), norm_stats=self.norm_stats
         )
-        return pred.squeeze()
+        return pred.squeeze()[self.metric_index]
