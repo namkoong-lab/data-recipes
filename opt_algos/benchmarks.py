@@ -335,19 +335,48 @@ class LemurBenchmark(ConstantFunctionBenchmarkMixin):
 class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
     """Create a data model benchmark that is compatible with 1D and 2D fidelity space"""
 
-    def __init__(self, metric_index=0):
+    def __init__(self, metric_index=3):
         """Metric index defines which metric to use for the data model"""
         self.metric_index = metric_index
 
         # Set the search space and budget space
         # Logits for the 5 categories
-        self.search_space = [[-10, 10] for i in range(5)]
+        self.search_space = [[-3.0, 3.0] for i in range(5)]
         self.budget_space = [1, 196]
 
-        checkpoint_path = f"/Users/michi/Documents/tyen/Academics/Research/DRO/Projects/DataMixture/data-recipes/opt_algos/data_models/20250112_111946_bvbk61r9"
+        checkpoint_path = f"/Users/michi/Documents/tyen/Academics/Research/DRO/Projects/DataMixture/data-recipes/opt_algos/data_models/20250119_174726_j8mad2i5"
         self.model, self.norm_stats = dm.load_model_for_prediction(checkpoint_path)
 
         super().__init__()
+
+        feature_names = {
+            0: "RedPajamaWikipedia",
+            1: "RedPajamaStackExchange",
+            2: "RedPajamaGithub",
+            3: "RedPajamaArXiv",
+            4: "RedPajamaBook",
+            5: "Model Size (M)",
+            6: "d_model",
+            7: "Num Heads",
+            8: "Training Steps",
+        }
+        METRIC_NAMES = {
+            0: "Train Cross Entropy",
+            1: "Common Crawl Cross Entropy",
+            2: "C4 Cross Entropy",
+            3: "Wikipedia Cross Entropy",
+            4: "Stack Exchange Cross Entropy",
+            5: "Github Cross Entropy",
+            6: "ArXiv Cross Entropy",
+            7: "Book Cross Entropy",
+            8: "Hellaswag Accuracy",
+            9: "PIQA Accuracy",
+            10: "ARC Easy Accuracy",
+        }
+
+        print(
+            f"Instantiating benchmark with y=metric {METRIC_NAMES[self.metric_index]}"
+        )
 
     def _raw_func(self, z, x):
         """Evaluate data model at step z and data mixture x"""
