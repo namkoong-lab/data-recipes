@@ -1,0 +1,19 @@
+[project]
+name = "data-recipes"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "ax-platform>=0.4.3",
+    "botorch>=0.12.0",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.10.0",
+    "pandas>=2.2.3",
+    "plotly>=5.24.1",
+    "pyqt5>=5.15.11",
+    "seaborn>=0.13.2",
+    "smac>=2.2.0",
+    "swig>=4.3.0",
+    "torch>=2.5.1",
+]

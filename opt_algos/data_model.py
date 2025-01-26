@@ -6,13 +6,13 @@ import json
 import plotly.graph_objects as go
 
 
-def load_checkpoint_run(run_dir):
+def load_checkpoint_run(run_dir, device='cpu'):
     """
     Load checkpoint, configuration and feature mask from a specific run directory.
 
     Args:
         run_dir (str): Path to the run directory containing checkpoints, config and feature mask files
-                      (e.g., 'runs/20240315_123456_wandb_id')
+        device (str): Device to load the model on ('cuda' or 'cpu')
 
     Returns:
         tuple: A tuple containing:
@@ -26,9 +26,9 @@ def load_checkpoint_run(run_dir):
     """
     run_path = Path(run_dir)
 
-    # Load latest checkpoint
+    # Load latest checkpoint with device mapping
     checkpoint_path = run_path / "checkpoints" / "checkpoint_latest.pt"
-    checkpoint = torch.load(checkpoint_path)
+    checkpoint = torch.load(checkpoint_path, map_location=device)
 
     # Load config
     config_path = run_path / "config.json"
@@ -129,7 +129,9 @@ def load_model_for_prediction(checkpoint_path):
         KeyError: If checkpoint is missing required data
     """
     # Load checkpoint, config and feature mask
-    checkpoint, config, feature_mask_data = load_checkpoint_run(checkpoint_path)
+    # Map model to CPU if CUDA is not available
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    checkpoint, config, feature_mask_data = load_checkpoint_run(checkpoint_path, device=device)
 
     # Extract feature mask and convert to list of booleans
     feature_mask = feature_mask_data.get("feature_mask", [True] * 9)
@@ -147,7 +149,7 @@ def load_model_for_prediction(checkpoint_path):
         num_layers=config["num_layers"],
         dropout_rate=config["dropout_rate"],
         feature_mask=feature_mask,
-    )
+    ).to(device)
 
     model.load_state_dict(checkpoint["model_state_dict"])
     norm_stats = checkpoint["normalization_stats"]

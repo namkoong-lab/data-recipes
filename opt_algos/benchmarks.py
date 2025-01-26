@@ -331,11 +331,10 @@ class LemurBenchmark(ConstantFunctionBenchmarkMixin):
 
         return out
 
-
 class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
     """Create a data model benchmark that is compatible with 1D and 2D fidelity space"""
 
-    def __init__(self, metric_index=3):
+    def __init__(self, metric_index=4):
         """Metric index defines which metric to use for the data model"""
         self.metric_index = metric_index
 
@@ -344,7 +343,7 @@ class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
         self.search_space = [[-3.0, 3.0] for i in range(5)]
         self.budget_space = [1, 196]
 
-        checkpoint_path = f"/Users/michi/Documents/tyen/Academics/Research/DRO/Projects/DataMixture/data-recipes/opt_algos/data_models/20250119_174726_j8mad2i5"
+        checkpoint_path = f"data_models/20250119_174726_j8mad2i5"
         self.model, self.norm_stats = dm.load_model_for_prediction(checkpoint_path)
 
         super().__init__()
@@ -394,4 +393,10 @@ class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
         pred = dm.predict(
             self.model, model_x.reshape(1, -1), norm_stats=self.norm_stats
         )
-        return pred.squeeze()[self.metric_index]
+        value = pred.squeeze()[self.metric_index]
+        
+        # Negate cross entropy metrics since we want to maximize performance
+        if self.metric_index <= 7:  # Cross entropy metrics
+            return value
+        else:  # Accuracy metrics
+            return -value  # Negate since we want to maximize performance

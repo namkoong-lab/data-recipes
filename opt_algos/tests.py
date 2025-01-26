@@ -13,9 +13,9 @@ optimizers = {
     "GridSearch": optimizers.GridSearchOptimizer,
 }
 
-# These are times are chosen (by trial an error) to get the number of budget evaluations
+# These are times are chosen (by trial and error) to get the number of budget evaluations
 # for SMAC roughly equal to 1000, which is what is used for the other techniques
-smac_times = {"Branin": 1.5, "SimpleMixture": 10, "Lemur": 2, "DataModel": 10}
+smac_times = {"Branin": 1.5, "SimpleMixture": 10, "Lemur": 2, "DataModel": 2}
 
 # Run
 

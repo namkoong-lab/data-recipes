@@ -47,13 +47,16 @@ pip install pandas==2.0.3
 pip install matplotlib==3.7.5
 pip install seaborn==0.13.2
 pip install PyQt5==5.15.11
+pip install plotly
 pip install torch==2.2.2
+pip install botorch
 ```
+
 
 Notes
 
 - To install `smac`, you need `swig` installed on your machine
-- `numpy` needs to be instaleld twice because after installing smac, `numpy` will be upgraded to 1.24.4 - force it back to 1.21 with the command above, or else `dragonfly` will break
+- (not needed if dragonfly is not used)`numpy` needs to be instaleld twice because after installing smac, `numpy` will be upgraded to 1.24.4 - force it back to 1.21 with the command above, or else `dragonfly` will break
 
 This isn't really a sustainable way to maintain dependencies - as we add more pacakges that we want to test with this repo, we are bound to encounter packages with conflicting dependencies. I suspect the solution will be to implement some of these algos ourselves rather than rely on packages.
 

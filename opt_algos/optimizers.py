@@ -15,7 +15,7 @@ be initialized with the following arguments
            The function should perform its own "memoization" in some way - in
            other words, if the algorithm calls it with a given value of x and
            a fidelity of 10, and then calls it again with the SAME value of x
-           and a fidely of 20, it should internally be able to load a checkpoint
+           and a fidelity of 20, it should internally be able to load a checkpoint
            from the previous call and use that to generate the higher fidelity
            reading.
 
