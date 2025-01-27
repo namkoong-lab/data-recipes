@@ -28,3 +28,9 @@ by the above dfn, then both training steps and model sizes are fidelities, i.e. 
 
 
 TODO:
+
+1. make sure we can have clear metric and to show how EI and KG differ over time. 
+2. Make it output data that we can plot over later
+3. Also make some plots
+4. Add model size as a fidelity that we can 
+2. turn it into a .py file we can run in the background

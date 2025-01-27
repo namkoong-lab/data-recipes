@@ -1,0 +1,88 @@
+{
+  "config": {
+    "params": {
+      "initial_points": 4,
+      "batch_size": 4,
+      "fixed_cost": 5000.0,
+      "n_iterations": 1,
+      "metric_index": 4,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    "metric_name": "Stack Exchange Cross Entropy",
+    "metric_index": 4
+  },
+  "initial_data": {
+    "best_value": -0.8344700803079671,
+    "n_points": 4
+  },
+  "results": {
+    "ei": {
+      "costs": [
+        0.0,
+        20784.0
+      ],
+      "best_values": [
+        -0.8344700803079671,
+        -0.8344700803079671
+      ],
+      "recommended_values": [
+        -0.8344700803079671
+      ],
+      "iterations": [
+        {
+          "iteration": 1,
+          "best_value": -0.8344700803079671,
+          "cumulative_cost": 20784.0,
+          "training_points": 8
+        }
+      ],
+      "final_recommendation": [
+        [
+          -1.5510542807062848,
+          2.3362084147264075,
+          -2.57835333216846,
+          -1.470611040272015,
+          0.7425273402583973,
+          196.0
+        ]
+      ],
+      "total_cost": 20784.0
+    },
+    "kg": {
+      "costs": [
+        0.0,
+        20600.0
+      ],
+      "best_values": [
+        -0.8344700803079671,
+        -0.8344700803079671
+      ],
+      "recommended_values": [
+        -0.8344701969612035
+      ],
+      "iterations": [
+        {
+          "iteration": 1,
+          "best_value": -0.8344700803079671,
+          "cumulative_cost": 20600.0,
+          "training_points": 8
+        }
+      ],
+      "final_recommendation": [
+        [
+          -1.5510541910780329,
+          2.336208402082586,
+          -2.5783534703068574,
+          -1.4706113067163713,
+          0.742527356521649,
+          196.0
+        ]
+      ],
+      "total_cost": 20600.0
+    }
+  }
+}

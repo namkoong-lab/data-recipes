@@ -1,0 +1,144 @@
+{
+  "config": {
+    "params": {
+      "initial_points": 4,
+      "batch_size": 4,
+      "fixed_cost": 5000.0,
+      "n_iterations": 4,
+      "metric_index": 4,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    "metric_name": "Stack Exchange Cross Entropy",
+    "metric_index": 4
+  },
+  "initial_data": {
+    "best_value": -0.8634082486464136,
+    "n_points": 4
+  },
+  "results": {
+    "ei": {
+      "costs": [
+        0.0,
+        20784.0,
+        20784.0,
+        20784.0,
+        20784.0
+      ],
+      "best_values": [
+        -0.8634082486464136,
+        -0.8634082486464136,
+        -0.8634082486464136,
+        -0.8416594192634976,
+        -0.8416594192634976
+      ],
+      "recommended_values": [
+        -0.863410115098195,
+        -0.8634101442615041,
+        -0.8634198264801203,
+        -0.863420438909611,
+        -0.8416594192634976
+      ],
+      "iterations": [
+        {
+          "iteration": 1,
+          "best_value": -0.8634082486464136,
+          "cumulative_cost": 20784.0,
+          "training_points": 8
+        },
+        {
+          "iteration": 2,
+          "best_value": -0.8634082486464136,
+          "cumulative_cost": 41568.0,
+          "training_points": 12
+        },
+        {
+          "iteration": 3,
+          "best_value": -0.8416594192634976,
+          "cumulative_cost": 62352.0,
+          "training_points": 16
+        },
+        {
+          "iteration": 4,
+          "best_value": -0.8416594192634976,
+          "cumulative_cost": 83136.0,
+          "training_points": 20
+        }
+      ],
+      "final_recommendation": [
+        [
+          -0.6662782066422979,
+          1.3870199287193408,
+          -0.6103813161838655,
+          -1.3025826319024107,
+          -2.175668677204067,
+          196.0
+        ]
+      ],
+      "total_cost": 83136.0
+    },
+    "kg": {
+      "costs": [
+        0.0,
+        20642.0,
+        20550.0,
+        20688.0,
+        20642.0
+      ],
+      "best_values": [
+        -0.8634082486464136,
+        -0.8523447098955421,
+        -0.8523447098955421,
+        -0.8356810575543953,
+        -0.8356810575543953
+      ],
+      "recommended_values": [
+        -0.8634101442615041,
+        -0.8634101442615041,
+        -0.8634112233039403,
+        -0.8634113399571766,
+        -0.8356811742076315
+      ],
+      "iterations": [
+        {
+          "iteration": 1,
+          "best_value": -0.8523447098955421,
+          "cumulative_cost": 20642.0,
+          "training_points": 8
+        },
+        {
+          "iteration": 2,
+          "best_value": -0.8523447098955421,
+          "cumulative_cost": 41192.0,
+          "training_points": 12
+        },
+        {
+          "iteration": 3,
+          "best_value": -0.8356810575543953,
+          "cumulative_cost": 61880.0,
+          "training_points": 16
+        },
+        {
+          "iteration": 4,
+          "best_value": -0.8356810575543953,
+          "cumulative_cost": 82522.0,
+          "training_points": 20
+        }
+      ],
+      "final_recommendation": [
+        [
+          -1.400818561809558,
+          2.7493506143719317,
+          1.76854160984595,
+          1.3777669543016602,
+          -0.016888001159541314,
+          196.0
+        ]
+      ],
+      "total_cost": 82522.0
+    }
+  }
+}

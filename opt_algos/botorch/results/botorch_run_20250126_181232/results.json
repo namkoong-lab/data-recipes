@@ -1,0 +1,11 @@
+{
+  "metadata": {
+    "initial_best_value": -0.8389809443039336,
+    "initial_points": 16,
+    "timestamp": "20250126_181232",
+    "n_iterations": 3,
+    "batch_size": 4
+  },
+  "optimization_results": {
+    "ei": {
+      "costs": 

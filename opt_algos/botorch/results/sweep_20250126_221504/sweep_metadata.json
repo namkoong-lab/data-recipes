@@ -1,0 +1,108 @@
+{
+  "timestamp": "20250126_221504",
+  "total_configs": 8,
+  "completed_configs": 8,
+  "failed_configs": [],
+  "metrics": {
+    "4": "Stack Exchange Cross Entropy"
+  },
+  "test_run": false,
+  "configurations": [
+    {
+      "initial_points": 4,
+      "batch_size": 4,
+      "fixed_cost": 100.0,
+      "n_iterations": 4,
+      "metric_index": 4,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    {
+      "initial_points": 4,
+      "batch_size": 4,
+      "fixed_cost": 100.0,
+      "n_iterations": 4,
+      "metric_index": 8,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    {
+      "initial_points": 4,
+      "batch_size": 4,
+      "fixed_cost": 5000.0,
+      "n_iterations": 4,
+      "metric_index": 4,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    {
+      "initial_points": 4,
+      "batch_size": 4,
+      "fixed_cost": 5000.0,
+      "n_iterations": 4,
+      "metric_index": 8,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    {
+      "initial_points": 20,
+      "batch_size": 4,
+      "fixed_cost": 100.0,
+      "n_iterations": 4,
+      "metric_index": 4,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    {
+      "initial_points": 20,
+      "batch_size": 4,
+      "fixed_cost": 100.0,
+      "n_iterations": 4,
+      "metric_index": 8,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    {
+      "initial_points": 20,
+      "batch_size": 4,
+      "fixed_cost": 5000.0,
+      "n_iterations": 4,
+      "metric_index": 4,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    },
+    {
+      "initial_points": 20,
+      "batch_size": 4,
+      "fixed_cost": 5000.0,
+      "n_iterations": 4,
+      "metric_index": 8,
+      "fidelities": [
+        100.0,
+        150.0,
+        196.0
+      ]
+    }
+  ]
+}

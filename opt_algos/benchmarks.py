@@ -4,12 +4,13 @@ func, which can be fed into an optimizer (see optimizers.py for a set of require
 this function should meet
 """
 
-import data_model as dm
+# import data_model as dm
+from . import data_model as dm
 import numpy as np
 import pandas as pd
 import sklearn.ensemble as sk_e
 import sklearn.metrics as sk_m
-
+import os
 
 class SimpleMixtureBenchmark:
     """
@@ -343,7 +344,8 @@ class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
         self.search_space = [[-3.0, 3.0] for i in range(5)]
         self.budget_space = [1, 196]
 
-        checkpoint_path = f"data_models/20250119_174726_j8mad2i5"
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        checkpoint_path = os.path.join(base_dir, "data_models", "20250119_174726_j8mad2i5")
         self.model, self.norm_stats = dm.load_model_for_prediction(checkpoint_path)
 
         super().__init__()

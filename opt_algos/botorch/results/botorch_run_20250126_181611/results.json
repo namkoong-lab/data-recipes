@@ -1,0 +1,105 @@
+{
+  "metadata": {
+    "initial_best_value": -0.8598792841040159,
+    "initial_points": 16,
+    "timestamp": "20250126_181611",
+    "n_iterations": 3,
+    "batch_size": 4
+  },
+  "optimization_results": {
+    "ei": {
+      "costs": [
+        0.0,
+        4784.0,
+        9568.0,
+        14352.0
+      ],
+      "best_values": [
+        -0.8598792841040159,
+        -0.8598792841040159,
+        -0.8598792841040159,
+        -0.8598792841040159
+      ],
+      "iterations": [
+        {
+          "iteration": 1,
+          "best_value": -0.8598792841040159,
+          "cumulative_cost": 4784.0,
+          "training_points": 20
+        },
+        {
+          "iteration": 2,
+          "best_value": -0.8598792841040159,
+          "cumulative_cost": 9568.0,
+          "training_points": 24
+        },
+        {
+          "iteration": 3,
+          "best_value": -0.8598792841040159,
+          "cumulative_cost": 14352.0,
+          "training_points": 28
+        },
+        {
+          "final_recommendation": [
+            [
+              -0.007380960289053095,
+              2.494121887353123,
+              2.9698299418534084,
+              1.3262461696297483,
+              -2.2567642415650835,
+              196.0
+            ]
+          ],
+          "total_cost": 14352.0
+        }
+      ]
+    },
+    "kg": {
+      "costs": [
+        0.0,
+        4496.0,
+        9138.0,
+        13588.0
+      ],
+      "best_values": [
+        -0.8598792841040159,
+        -0.8598792841040159,
+        -0.8598792841040159,
+        -0.8598792841040159
+      ],
+      "iterations": [
+        {
+          "iteration": 1,
+          "best_value": -0.8598792841040159,
+          "cumulative_cost": 4496.0,
+          "training_points": 20
+        },
+        {
+          "iteration": 2,
+          "best_value": -0.8598792841040159,
+          "cumulative_cost": 9138.0,
+          "training_points": 24
+        },
+        {
+          "iteration": 3,
+          "best_value": -0.8598792841040159,
+          "cumulative_cost": 13588.0,
+          "training_points": 28
+        },
+        {
+          "final_recommendation": [
+            [
+              -0.0073881294571128886,
+              2.494129677612356,
+              2.969821151213451,
+              1.326154014243528,
+              -2.2567712958369923,
+              196.0
+            ]
+          ],
+          "total_cost": 13588.0
+        }
+      ]
+    }
+  }
+}
