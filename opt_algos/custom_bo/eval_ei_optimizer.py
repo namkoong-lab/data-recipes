@@ -17,7 +17,7 @@ import torch
 from scipy.optimize import minimize
 from tqdm import tqdm
 
-data_benchmark = benchmarks.DataModelBenchmark(metric_index=3)
+data_benchmark = benchmarks.DataModelBenchmark(metric_index=4)
 func = data_benchmark._raw_func_with_model_scale  # (z, m, x)
 
 fname = "ei_optimizer.log"
@@ -35,7 +35,7 @@ FLOPS = {
 
 # Experiment parameters
 k = 10
-num_revealed = 100
+num_revealed = 15
 num_search_per_fid = 5
 
 training_iter = 20  # GP training iterations
@@ -54,8 +54,8 @@ def get_random_points(k, return_x=False):
     rd_prop = np.random.dirichlet(np.ones(5), size=k)
 
     # Scale range to be from 0 to 1
-    rd_scale = np.random.choice([2, 15], size=k) / SCALE_SCALE
-    rd_timestep = np.random.choice(np.arange(1, 197), size=k) / STEP_SCALE
+    rd_scale = np.random.choice([2, 15, 30, 50, 70, 100], size=k) / SCALE_SCALE
+    rd_timestep = np.random.choice(np.arange(1, 20), size=k) / STEP_SCALE
 
     if return_x:
         rd_x = np.concatenate(
@@ -126,7 +126,17 @@ logger.info(f"Initial cost for scale 15: {c15}")
 
 cost = [c2 + c15]
 
-## Calculate EI
+## Calculate initial best point
+best_y = train_y.min()
+best_idx = train_y.argmin()
+best_x = train_x[best_idx]
+logger.info(f"Best point so far: {best_y} at {best_x}")
+
+best_xs = [best_x]
+best_ys = [best_y]
+best_eis = []
+
+## Run Bayesopt
 for i in tqdm(range(num_revealed), desc="Revealing labels"):
     # Find the point with the highest EI
     def ei_to_minimize(x, scale, timestep, model, likelihood, train_y):
@@ -229,6 +239,8 @@ for i in tqdm(range(num_revealed), desc="Revealing labels"):
         f"\n\tscale: {best_scale * SCALE_SCALE},"
         f"\n\ttimestep: {best_timestep * STEP_SCALE},\n\tx: {best_x}"
     )
+    best_ei = ei_results[best_scale][best_timestep][1]
+    best_eis.append(best_ei)
 
     # Update the model with the new point
     int_best_time_step = np.round(best_timestep * STEP_SCALE).astype(int)
@@ -251,7 +263,7 @@ for i in tqdm(range(num_revealed), desc="Revealing labels"):
     model.set_train_data(train_x, train_y, strict=False)
 
     # Calculate cost
-    cur_cost = best_timestep * 197 * FLOPS[int(best_scale * 100)]
+    cur_cost = best_timestep * 197 * FLOPS[int(best_scale * SCALE_SCALE)]
     cost.append(cur_cost)
 
     # Report best point so far
@@ -261,3 +273,17 @@ for i in tqdm(range(num_revealed), desc="Revealing labels"):
     logger.info(f"Best point so far: {best_y} at {best_x}")
     logger.info(f"Current cost: {cur_cost}")
     logger.info(f"Cumuative cost: {sum(cost)}")
+
+    best_xs.append(best_x)
+    best_ys.append(best_y)
+
+    # Save results
+    np.save("best_xs.npy", torch.stack(best_xs).numpy())
+    np.save("best_ys.npy", torch.stack(best_ys).numpy())
+    np.save("cost.npy", np.array(cost))
+    np.save("best_eis.npy", np.array(best_eis))
+
+    # Update model length scale
+    new_scale = model.covar_module.base_kernel.lengthscale * 0.95
+    logger.info(f"Updating lengthscale to {new_scale}")
+    model.covar_module.base_kernel.lengthscale = new_scale

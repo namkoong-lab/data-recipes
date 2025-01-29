@@ -206,6 +206,17 @@ class SMACOptimizer(Optimizer):
     '''
     For the SMAC optimizer, the "time" in max_time is the wall time
     '''
+    def __init__(self, func, search_space, budget_space, max_time, seed=42, log_file=None, 
+                 initial_design_size=10, eta=3):
+        """
+        Parameters:
+            initial_design_size: Number of initial configurations to evaluate (default: 10)
+            eta: Reduction factor for successive halving (default: 3)
+                Controls bracket sizes - higher values = smaller brackets
+        """
+        super().__init__(func, search_space, budget_space, max_time, seed, log_file)
+        self.initial_design_size = initial_design_size
+        self.eta = eta
 
     def _minimize(self):
         import smac
@@ -219,32 +230,35 @@ class SMACOptimizer(Optimizer):
         # Create the scenario
         scenario = smac.Scenario(cs,
                                  walltime_limit = self.max_time,
-                                 n_trials       = float('inf'),
-                                 min_budget     = self.budget_space[0],
-                                 max_budget     = self.budget_space[1],
-                                 n_workers      = 1,
-                                 seed           = self.seed )  # Use the provided seed
+                                 n_trials = float('inf'),
+                                 min_budget = self.budget_space[0],
+                                 max_budget = self.budget_space[1],
+                                 n_workers = 1,
+                                 seed = self.seed)
 
-        # Use a hyperband intensifier. Train the random forests only on the highest
-        # budget runs
+        # Use a hyperband intensifier with custom eta parameter
         intensifier = smac.intensifier.hyperband.Hyperband(
                                 scenario,
                                 incumbent_selection='highest_budget',
-                                seed=self.seed)  # Use the provided seed
+                                eta=self.eta,  # Control bracket reduction factor
+                                seed=self.seed)
         
         # SMAC provides the optimization function three arguments - config, seed, and budget.
         # config is provided as a dictionary-like object, so we need to convert it
         def this_func(config, seed, budget, n_vars=len(self.search_space)):
             return self._func_wrapped(budget, np.array([config[f'x{i}'] for i in range(n_vars)]))
 
+        # Create initial design with custom size
+        initial_design = smac.initial_design.RandomInitialDesign(scenario, n_configs=self.initial_design_size)
+
         # Optimize
         smac_instance = smac.MultiFidelityFacade(
                                 scenario,
                                 this_func,
-                                initial_design = smac.MultiFidelityFacade.get_initial_design(scenario),
-                                intensifier    = intensifier,
-                                overwrite      = True,
-                                logging_level  = None)
+                                initial_design=initial_design,
+                                intensifier=intensifier,
+                                overwrite=True,
+                                logging_level=None)
         res = smac_instance.optimize()
 
         # Extract the results

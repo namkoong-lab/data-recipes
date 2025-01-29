@@ -25,7 +25,7 @@ optimizers = {
 
 # These are times are chosen (by trial and error) to get the number of budget evaluations
 # for SMAC roughly equal to 1000, which is what is used for the other techniques
-smac_times = {"Branin": 1.5, "SimpleMixture": 10, "Lemur": 2, "DataModel": 11}
+smac_times = {"Branin": 1.5, "SimpleMixture": 10, "Lemur": 2, "DataModel": 60}
     
 # Run
 
@@ -38,7 +38,7 @@ for b in benchmarks:
         if o == "SMAC":
             max_time = smac_times[b]
         else:
-            max_time = 4000
+            max_time = 16000
 
         benchmark = benchmarks[b]()
 

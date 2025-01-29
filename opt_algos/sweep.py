@@ -50,8 +50,8 @@ METRICS = [1,2,3,4,5,6,7,8,9,10]  # Test Wikipedia CE, Stack Exchange CE, and He
 
 # These are times are chosen (by trial and error) to get the number of budget evaluations
 # for SMAC roughly equal to 1000, which is what is used for the other techniques
-smac_times = {"DataModel": 11}  # Doubled from original
-
+smac_times = {"DataModel": 60}  # Doubled from original
+random_grid_time = 16000
 optimizers = {
     "SMAC": optimizers.SMACOptimizer,
     "RandomSearch": optimizers.RandomSearchOptimizer,
@@ -161,7 +161,7 @@ def run_experiment(metric_index, seed):
     for opt_name, opt_class in optimizers.items():
         print(f"Running {opt_name} with metric {METRIC_NAMES[metric_index]} (seed {seed})")
         
-        max_time = smac_times["DataModel"] if opt_name == "SMAC" else 4000
+        max_time = smac_times["DataModel"] if opt_name == "SMAC" else random_grid_time
         
         # Create optimizer with log file in the logs directory
         log_file = os.path.join(logs_dir, f"{opt_name}_{METRIC_NAMES[metric_index].replace(' ', '_')}_{seed}.csv")

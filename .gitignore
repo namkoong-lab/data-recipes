@@ -4,6 +4,9 @@ opt_algos/botorch/results/*
 opt_algos/smac3_output/*
 opt_algos/results/*
 
+# Ignore specific results directory
+!opt_algos/results/20250129_023617
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
