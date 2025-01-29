@@ -4,6 +4,9 @@ import torch.nn as nn
 from pathlib import Path
 import json
 import plotly.graph_objects as go
+import os
+import pandas as pd
+from typing import Union, Tuple
 
 
 def load_checkpoint_run(run_dir, device='cpu'):
@@ -44,93 +47,49 @@ def load_checkpoint_run(run_dir, device='cpu'):
 
 
 class MLP(nn.Module):
-    """
-    Multi-layer perceptron model with configurable architecture and feature masking.
-
-    The model consists of:
-    - An input layer that applies feature masking
-    - Configurable number of hidden layers with ReLU activation and dropout
-    - A final output layer
-
-    Args:
-        input_size (int, optional): Number of input features. Defaults to 9.
-        hidden_size (int, optional): Number of neurons in hidden layers. Defaults to 64.
-        output_size (int, optional): Number of output dimensions. Defaults to 11.
-        num_layers (int, optional): Number of hidden layers. Defaults to 2.
-        dropout_rate (float, optional): Dropout probability between layers. Defaults to 0.2.
-        feature_mask (list[bool], optional): Boolean mask for selecting input features.
-            If None, all features are used. Defaults to None.
-
-    Attributes:
-        feature_mask (list[bool]): Active feature mask
-        layers (nn.Sequential): Sequential container of network layers
-    """
-
-    def __init__(
-        self,
-        input_size=9,
-        hidden_size=64,
-        output_size=11,
-        num_layers=2,
-        dropout_rate=0.2,
-        feature_mask=None,
-    ):
-        super(MLP, self).__init__()
-
-        assert hidden_size > 0, "Hidden size must be greater than 0"
-        assert num_layers >= 1, "Number of layers must be at least 1"
-        assert 0 <= dropout_rate < 1, "Dropout rate must be between 0 and 1"
-
-        self.feature_mask = (
-            feature_mask if feature_mask is not None else [True] * input_size
+    def __init__(self, input_size, hidden_size, output_size, num_layers, dropout_rate, feature_mask):
+        super().__init__()
+        self.layers = nn.Sequential(
+            nn.Linear(input_size, hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Dropout(dropout_rate),
+            nn.Linear(hidden_size, output_size),
         )
-        actual_input_size = sum(self.feature_mask)
-
-        layers = []
-        # Input layer
-        layers.append(nn.Linear(actual_input_size, hidden_size))
-        layers.append(nn.ReLU())
-        layers.append(nn.Dropout(dropout_rate))
-
-        # Hidden layers
-        for _ in range(num_layers - 1):
-            layers.append(nn.Linear(hidden_size, hidden_size))
-            layers.append(nn.ReLU())
-            layers.append(nn.Dropout(dropout_rate))
-
-        # Output layer (no dropout after final layer)
-        layers.append(nn.Linear(hidden_size, output_size))
-
-        self.layers = nn.Sequential(*layers)
+        self.feature_mask = feature_mask
 
     def forward(self, x):
-        # Convert feature mask to boolean tensor on same device as input
-        mask = torch.tensor(self.feature_mask, device=x.device, dtype=torch.bool)
-        # Select features using the mask
+        # Use the device of the model's parameters
+        if not isinstance(x, torch.Tensor):
+            x = torch.tensor(x, dtype=torch.float32, device=self.layers[0].weight.device)
+        elif x.device != self.layers[0].weight.device:
+            x = x.to(self.layers[0].weight.device)
+        
+        # Create mask tensor on the same device as input
+        mask = torch.tensor(self.feature_mask, dtype=torch.bool, device=x.device)
         x = x[:, mask]
         return self.layers(x)
 
 
-def load_model_for_prediction(checkpoint_path):
+def load_model_for_prediction(checkpoint_path, device=None):
     """
     Load a trained model and its normalization statistics from a checkpoint.
 
     Args:
         checkpoint_path (str): Path to directory containing model checkpoint and config files
+        device (str): Device to load the model on
 
     Returns:
         tuple: A tuple containing:
             - model (MLP): Initialized and loaded model ready for prediction
             - norm_stats (dict): Normalization statistics for input/output scaling
-                Contains 'X_mean', 'X_std', 'y_mean', 'y_std' for feature normalization
-
-    Raises:
-        FileNotFoundError: If checkpoint files don't exist
-        KeyError: If checkpoint is missing required data
     """
     # Load checkpoint, config and feature mask
-    # Map model to CPU if CUDA is not available
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     checkpoint, config, feature_mask_data = load_checkpoint_run(checkpoint_path, device=device)
 
     # Extract feature mask and convert to list of booleans
@@ -141,20 +100,27 @@ def load_model_for_prediction(checkpoint_path):
             for i in range(9)
         ]
 
-    # Initialize model
+    # Calculate actual input size after feature masking
+    actual_input_size = sum(feature_mask)  # Count number of True values in mask
+
+    # Initialize model with correct input size
     model = MLP(
-        input_size=9,
+        input_size=actual_input_size,  # Use actual number of features after masking
         hidden_size=config["hidden_size"],
         output_size=11,
         num_layers=config["num_layers"],
         dropout_rate=config["dropout_rate"],
         feature_mask=feature_mask,
-    ).to(device)
-
-    model.load_state_dict(checkpoint["model_state_dict"])
-    norm_stats = checkpoint["normalization_stats"]
-
-    return model, norm_stats
+    )
+    
+    if device:
+        model = model.to(device)
+    
+    # Load only the layer parameters from the checkpoint
+    model.load_state_dict(checkpoint["model_state_dict"], strict=False)
+    model.eval()
+    
+    return model, checkpoint["normalization_stats"]
 
 
 def predict(model, X, norm_stats=None):
@@ -179,29 +145,109 @@ def predict(model, X, norm_stats=None):
         Small epsilon (1e-8) is added to standard deviations to prevent division by zero
     """
     model.eval()
+    device = next(model.parameters()).device  # Get model's device
+    
     with torch.no_grad():
         # Normalize input if needed
         if norm_stats is not None:
-            # Add small epsilon to avoid division by zero
             eps = 1e-8
             X_std = np.where(norm_stats["X_std"] == 0, eps, norm_stats["X_std"])
             X_normalized = (X - norm_stats["X_mean"]) / X_std
-            X_tensor = torch.FloatTensor(X_normalized)
+            X_tensor = torch.tensor(X_normalized, dtype=torch.float32, device=device)
         else:
-            X_tensor = torch.FloatTensor(X)
+            X_tensor = torch.tensor(X, dtype=torch.float32, device=device)
 
         # Get predictions
-        y_pred_normalized = model(X_tensor).numpy()
+        y_pred_normalized = model(X_tensor).cpu().numpy()
 
         # Denormalize predictions if needed
         if norm_stats is not None:
-            # Add small epsilon to avoid division by zero
             y_std = np.where(norm_stats["y_std"] == 0, eps, norm_stats["y_std"])
             y_pred = y_pred_normalized * y_std + norm_stats["y_mean"]
         else:
             y_pred = y_pred_normalized
 
         return y_pred
+
+
+def get_flops(model_size: Union[str, int, float], step: Union[int, float]) -> float:
+    """
+    Get the FLOPS value for a given model size and training step.
+    
+    Args:
+        model_size: Size of the model. Can be either:
+            - str: e.g., "20M", "300M", "1B"
+            - int/float: size in millions of parameters (e.g., 20 for 20M, 1000 for 1B)
+        step (Union[int, float]): Training step to get FLOPS for
+        
+    Returns:
+        float: FLOPS value for the given configuration
+        
+    Raises:
+        ValueError: If model_size format is invalid or not found in dataset
+        ValueError: If step is not found for the given model_size
+        TypeError: If inputs are of invalid types
+    """
+    # Input validation
+    if not isinstance(step, (int, float)):
+        raise TypeError(f"step must be int or float, got {type(step)}")
+    if not isinstance(model_size, (str, int, float)):
+        raise TypeError(f"model_size must be str, int, or float, got {type(model_size)}")
+    
+    # Convert numeric model_size to string format
+    if isinstance(model_size, (int, float)):
+        if model_size >= 1000:
+            model_size = f"{int(model_size/1000)}B"
+        else:
+            model_size = f"{int(model_size)}M"
+    
+    # Validate string format
+    if isinstance(model_size, str):
+        if not (model_size.endswith('M') or model_size.endswith('B')):
+            raise ValueError(f"String model_size must end with 'M' or 'B', got {model_size}")
+        try:
+            # Extract numeric part and validate
+            size_num = float(model_size[:-1])
+            if model_size.endswith('B'):
+                size_num *= 1000
+            if size_num <= 0:
+                raise ValueError(f"Model size must be positive, got {size_num}")
+        except ValueError as e:
+            if "could not convert string to float" in str(e):
+                raise ValueError(f"Invalid model size format: {model_size}")
+            raise
+    
+    # Load the FLOPS dataset
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    flops_path = os.path.join(script_dir, "flops_dataset.csv")
+    df = pd.read_csv(flops_path)
+    
+    # Filter for the requested model size
+    model_df = df[df["model_size"] == model_size]
+    if len(model_df) == 0:
+        raise ValueError(f"Model size {model_size} not found in dataset. Available sizes: {sorted(df['model_size'].unique())}")
+    
+    # Find the exact step if it exists
+    if step in model_df["step"].values:
+        return float(model_df[model_df["step"] == step]["flops"].iloc[0])
+    
+    # If exact step not found, interpolate between closest steps
+    steps = model_df["step"].values
+    if step < steps.min() or step > steps.max():
+        raise ValueError(f"Step {step} is outside the available range [{steps.min()}, {steps.max()}] for model size {model_size}")
+    
+    # Find closest steps for interpolation
+    lower_step = steps[steps <= step].max()
+    upper_step = steps[steps >= step].min()
+    
+    lower_flops = float(model_df[model_df["step"] == lower_step]["flops"].iloc[0])
+    upper_flops = float(model_df[model_df["step"] == upper_step]["flops"].iloc[0])
+    
+    # Linear interpolation
+    ratio = (step - lower_step) / (upper_step - lower_step)
+    interpolated_flops = lower_flops + ratio * (upper_flops - lower_flops)
+    
+    return interpolated_flops
 
 
 if __name__ == "__main__":
@@ -291,9 +337,9 @@ if __name__ == "__main__":
             x[1:5] = other_props  # Equal distribution for other proportions
 
             # Set other features to some reasonable default
-            x[5] = 20  # Model size in millions
-            x[6] = 256  # d_model dimension
-            x[7] = 8  # Number of attention heads
+            x[5] = 1000  # Model size in millions
+            x[6] = 2048  # d_model dimension
+            x[7] = 16  # Number of attention heads
             x[8] = 15000  # Training steps
 
             # Get prediction using the modular predict function
@@ -344,3 +390,4 @@ if __name__ == "__main__":
     split_type = "single_step_15000_split"
     fig, results = analyze_token_proportion_smoothness(split_type)
     fig.show()
+

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from datetime import datetime
 import json
+import wandb
 
 # Add the root directory to the path
 root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -29,9 +30,13 @@ import enum
 
 
 # Global settings
+GPU_ID = 2  # Change this to use different GPU
+DEVICE = f"cuda:{GPU_ID}" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {DEVICE}")
+
 tkwargs = {
     "dtype": torch.double,
-    "device": torch.device("cuda" if torch.cuda.is_available() else "cpu"),
+    "device": torch.device(DEVICE),
 }
 SMOKE_TEST = os.environ.get("SMOKE_TEST")
 
@@ -86,7 +91,7 @@ class OptimizationConfig:
 class BayesianOptimizer:
     def __init__(self, config: OptimizationConfig):
         self.config = config
-        self.problem = DataModelBenchmark(metric_index=config.metric_index)
+        self.problem = DataModelBenchmark(metric_index=config.metric_index, device=DEVICE)
         print(f"Instantiating benchmark with y=metric {METRIC_NAMES[config.metric_index]}")
         
         # Create utility function that considers both information gain and cost
@@ -100,9 +105,21 @@ class BayesianOptimizer:
             "acq_type": None
         }
         
+        # Initialize wandb run if not already initialized
+        if wandb.run is None:
+            wandb.init(
+                project="botorch",
+                config={
+                    "metric": METRIC_NAMES[config.metric_index],
+                    "fidelities": config.fidelities.tolist(),
+                    "bounds": config.bounds.tolist(),
+                    "device": DEVICE,
+                }
+            )
+
     def generate_initial_data(self, n=16):
         train_x = torch.rand(n, 5, **tkwargs) * 6.0 - 3.0  # Scale to [-3.0, 3.0]
-        train_f = self.config.fidelities[torch.randint(3, (n, 1))]
+        train_f = self.config.fidelities[torch.randint(3, (n, 1))].to(**tkwargs)  # Ensure fidelities are on correct device
         train_x_full = torch.cat((train_x, train_f), dim=1)
         train_obj = -torch.tensor(
             [
@@ -204,6 +221,14 @@ class BayesianOptimizer:
         current_best = max(new_obj.max().item(), self.history["best_values"][-1] if self.history["best_values"] else float("-inf"))
         self.history["best_values"].append(current_best)
         
+        # Log to wandb
+        wandb.log({
+            f"{acq_type.value}/cost": cost.item(),
+            f"{acq_type.value}/best_value": current_best,
+            f"{acq_type.value}/batch_size": len(new_x),
+            f"{acq_type.value}/cumulative_cost": sum(self.history["costs"]),
+        })
+        
         print(f"candidates:\n{new_x}\n")
         print(f"observations:\n{new_obj}\n\n")
         return new_x, new_obj, cost
@@ -236,6 +261,14 @@ class BayesianOptimizer:
         for i, name in FEATURE_NAMES.items():
             print(f"{name}: {proportions[i]:.3f}")
 
+        # Log recommendation to wandb
+        wandb.log({
+            f"{self.history['acq_type']}/recommended_value": -raw_value,
+            f"{self.history['acq_type']}/proportions": {
+                name: proportions[i].item() for i, name in FEATURE_NAMES.items()
+            }
+        })
+
         return final_rec
 
 def convert_to_serializable(obj):
@@ -258,6 +291,18 @@ def main():
     results_dir = os.path.join('results', f'run_{timestamp}')
     os.makedirs(results_dir, exist_ok=True)
     print(f"\nResults will be saved in: {results_dir}")
+    
+    # Initialize wandb
+    wandb.init(
+        project="botorch",
+        name=f"single_run_{timestamp}",
+        config={
+            "timestamp": timestamp,
+            "n_iterations": N_ITER,
+            "batch_size": BATCH_SIZE,
+            "smoke_test": SMOKE_TEST,
+        }
+    )
     
     # Store results for plotting
     results = {}
@@ -400,6 +445,9 @@ def main():
         print(f"Fatal error in main: {str(e)}")
         import traceback
         traceback.print_exc()
+
+    # Close wandb run at the end
+    wandb.finish()
 
 if __name__ == "__main__":
     main()

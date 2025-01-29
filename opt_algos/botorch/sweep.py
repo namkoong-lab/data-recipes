@@ -1,14 +1,20 @@
 import os
 import sys
+
+# Add the root directory to the path
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(root_dir)
+
 import json
 from datetime import datetime
 from itertools import product
 import torch
 import numpy as np
-from eimf2 import BayesianOptimizer, OptimizationConfig, AcquisitionType, METRIC_NAMES
+from opt_algos.botorch.train_eikg import BayesianOptimizer, OptimizationConfig, AcquisitionType, METRIC_NAMES, DEVICE, tkwargs
 from botorch.models.cost import AffineFidelityCostModel
 from botorch import fit_gpytorch_mll
 import matplotlib.pyplot as plt
+import wandb
 
 # Test run flag - set to True for quick testing
 TEST_RUN = False
@@ -35,21 +41,21 @@ def create_sweep_configs():
             "n_iterations": [1],  # Just one iteration
             "metric_index": [4],  # Just Stack Exchange CE
             "fidelities": [
-                torch.tensor([100.0, 150.0, 196.0]),
+                torch.tensor([100.0, 150.0, 196.0], **tkwargs),  # Ensure fidelities are on correct device
             ]
         }
         print("\nRunning in TEST mode with minimal configuration")
     else:
         sweep_params = {
             "initial_points": [4],
-            "batch_size": [4, 8],
-            "fixed_cost": [10.0, 100.0],
+            "batch_size": [4],# [4, 8],
+            "fixed_cost": [10.0],# 100.0],
             "n_iterations": [8],
             "metric_index": [4, 7, 8],  # Stack Exchange CE, Hellaswag, PIQA, ARC Easy
             "fidelities": [
-                torch.tensor([100.0, 150.0, 196.0]),
-                torch.tensor([50.0, 100.0, 150.0, 196.0]),
-                # torch.tensor([25.0, 50.0, 100.0, 150.0, 196.0])
+                # torch.tensor([100.0, 150.0, 196.0], **tkwargs),
+                torch.tensor([50.0, 100.0, 150.0, 196.0], **tkwargs),
+                # torch.tensor([25.0, 50.0, 100.0, 150.0, 196.0], **tkwargs)
             ]
         }
     
@@ -109,6 +115,24 @@ def run_sweep():
     
     # Run each configuration
     for config_idx, config in enumerate(configs, 1):
+        # Initialize wandb run for this configuration
+        run_name = f"sweep_{timestamp}_config_{config_idx}"
+        wandb.init(
+            project="botorch",
+            name=run_name,
+            config={
+                "sweep_timestamp": timestamp,
+                "config_idx": config_idx,
+                "metric": METRIC_NAMES[config['params']['metric_index']],
+                "batch_size": config['params']['batch_size'],
+                "fixed_cost": config['params']['fixed_cost'],
+                "n_iterations": config['params']['n_iterations'],
+                "initial_points": config['params']['initial_points'],
+                "fidelities": config['params']['fidelities'].tolist(),
+            },
+            reinit=True  # Allow multiple runs in the same process
+        )
+
         print(f"\n{'='*80}")
         print(f"Running configuration {config_idx}/{len(configs)}")
         print(f"Metric: {METRIC_NAMES[config['params']['metric_index']]}")
@@ -292,9 +316,21 @@ def run_sweep():
             finally:
                 plt.close('all')  # Always close all figures
             
+            # Log final results to wandb
+            for acq_type, data in results.items():
+                wandb.log({
+                    f"final/{acq_type}/best_value": data["best_values"][-1],
+                    f"final/{acq_type}/total_cost": data["total_cost"],
+                    f"final/{acq_type}/n_iterations": len(data["iterations"]),
+                })
+
+            # Log the comparison plot to wandb
+            wandb.log({"comparison_plot": wandb.Image(os.path.join(exp_dir, 'comparison.png'))})
+
             sweep_metadata["completed_configs"] += 1
             
         except Exception as e:
+            wandb.log({"error": str(e)})
             print(f"Error in configuration {config_idx}: {str(e)}")
             sweep_metadata["failed_configs"].append({
                 "config_idx": config_idx,
@@ -304,6 +340,10 @@ def run_sweep():
             })
             import traceback
             traceback.print_exc()
+        
+        finally:
+            # Close the wandb run for this configuration
+            wandb.finish()
     
     # Save sweep metadata
     with open(os.path.join(base_results_dir, 'sweep_metadata.json'), 'w') as f:

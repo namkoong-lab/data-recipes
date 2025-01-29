@@ -4,13 +4,13 @@ func, which can be fed into an optimizer (see optimizers.py for a set of require
 this function should meet
 """
 
-# import data_model as dm
-from . import data_model as dm
+import data_model as dm
 import numpy as np
 import pandas as pd
 import sklearn.ensemble as sk_e
 import sklearn.metrics as sk_m
 import os
+import torch
 
 class SimpleMixtureBenchmark:
     """
@@ -335,18 +335,20 @@ class LemurBenchmark(ConstantFunctionBenchmarkMixin):
 class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
     """Create a data model benchmark that is compatible with 1D and 2D fidelity space"""
 
-    def __init__(self, metric_index=4):
+    def __init__(self, metric_index=4, device=None):
         """Metric index defines which metric to use for the data model"""
         self.metric_index = metric_index
+        self.device = device
+        
+        # Load model and normalization stats using the correct path
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        checkpoint_path = os.path.join(base_dir, "data_models", "20250119_174726_j8mad2i5")
+        self.model, self.norm_stats = dm.load_model_for_prediction(checkpoint_path, device=self.device)
 
         # Set the search space and budget space
         # Logits for the 5 categories
         self.search_space = [[-3.0, 3.0] for i in range(5)]
         self.budget_space = [1, 196]
-
-        base_dir = os.path.dirname(os.path.abspath(__file__))
-        checkpoint_path = os.path.join(base_dir, "data_models", "20250119_174726_j8mad2i5")
-        self.model, self.norm_stats = dm.load_model_for_prediction(checkpoint_path)
 
         super().__init__()
 
@@ -389,6 +391,80 @@ class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
 
         # Set other features to 1B features
         model_x[5] = 1000  # Model size in millions
+        model_x[6] = 2048  # d_model dimension
+        model_x[7] = 16  # Number of attention heads
+
+        pred = dm.predict(
+            self.model, model_x.reshape(1, -1), norm_stats=self.norm_stats
+        )
+        value = pred.squeeze()[self.metric_index]
+        
+        # Negate cross entropy metrics since we want to maximize performance
+        if self.metric_index <= 7:  # Cross entropy metrics
+            return value
+        else:  # Accuracy metrics
+            return -value  # Negate since we want to maximize performance
+
+
+class NewDataModelBenchmark(ConstantFunctionBenchmarkMixin):
+    """Create a data model benchmark that is compatible with 1D and 2D fidelity space"""
+
+    def __init__(self, metric_index=4, device=None):
+        """Metric index defines which metric to use for the data model"""
+        self.metric_index = metric_index
+        self.device = device
+        
+        # Load model and normalization stats using the correct path
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        checkpoint_path = os.path.join(base_dir, "data_models", "20250119_174726_j8mad2i5")
+        self.model, self.norm_stats = dm.load_model_for_prediction(checkpoint_path, device=self.device)
+
+        # Set the search space and budget space
+        # Logits for the 5 categories
+        self.search_space = [[-3.0, 3.0] for i in range(5)]
+        self.budget_space = [1, 196]
+
+        super().__init__()
+
+        feature_names = {
+            0: "RedPajamaWikipedia",
+            1: "RedPajamaStackExchange",
+            2: "RedPajamaGithub",
+            3: "RedPajamaArXiv",
+            4: "RedPajamaBook",
+            5: "Model Size (M)",
+            6: "d_model",
+            7: "Num Heads",
+            8: "Training Steps",
+        }
+        METRIC_NAMES = {
+            0: "Train Cross Entropy",
+            1: "Common Crawl Cross Entropy",
+            2: "C4 Cross Entropy",
+            3: "Wikipedia Cross Entropy",
+            4: "Stack Exchange Cross Entropy",
+            5: "Github Cross Entropy",
+            6: "ArXiv Cross Entropy",
+            7: "Book Cross Entropy",
+            8: "Hellaswag Accuracy",
+            9: "PIQA Accuracy",
+            10: "ARC Easy Accuracy",
+        }
+
+        print(
+            f"Instantiating benchmark with y=metric {METRIC_NAMES[self.metric_index]}"
+        )
+
+    def _raw_func(self, size, steps, x):
+        """Evaluate data model at step z and data mixture x"""
+
+        model_x = np.zeros(9)
+        proportions = np.exp(x) / np.sum(np.exp(x))
+        model_x[0:5] = proportions
+        model_x[8] = 100 * steps  # Training steps
+
+        # Set other features to 1B features
+        model_x[5] = size  # Model size in millions
         model_x[6] = 2048  # d_model dimension
         model_x[7] = 16  # Number of attention heads
 

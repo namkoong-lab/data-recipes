@@ -16,4 +16,5 @@ dependencies = [
     "smac>=2.2.0",
     "swig>=4.3.0",
     "torch>=2.5.1",
+    "wandb>=0.19.4",
 ]

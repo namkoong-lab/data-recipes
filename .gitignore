@@ -1,4 +1,8 @@
 opt_algos/logs
+opt_algos/botorch/wandb/*
+opt_algos/botorch/results/*
+opt_algos/smac3_output/*
+opt_algos/results/*
 
 ## Core latex/pdflatex auxiliary files:
 *.aux

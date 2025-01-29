@@ -20,7 +20,6 @@ from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikeliho
 from botorch import fit_gpytorch_mll
 from botorch.acquisition import ExpectedImprovement, AcquisitionFunction, PosteriorMean
 from botorch.acquisition.fixed_feature import FixedFeatureAcquisitionFunction
-from botorch.acquisition.knowledge_gradient import qKnowledgeGradient
 from botorch.optim import optimize_acqf
 from botorch.models.kernels.exponential_decay import ExponentialDecayKernel
 from gpytorch.kernels import MaternKernel, ScaleKernel, ProductKernel
@@ -29,7 +28,7 @@ from gpytorch.constraints import GreaterThan
 from gpytorch.distributions import MultivariateNormal
 from torch.nn import ModuleList
 from torch import Tensor
-from typing import Optional, Dict, Any
+from typing import Optional
 import matplotlib.pyplot as plt
 from datetime import datetime
 import wandb
@@ -95,47 +94,6 @@ def generate_random_valid_points(n, **tkwargs):
     return points
 
 
-def project_to_discrete(X):
-    """Project continuous X to discrete valid values for model size and step.
-    Args:
-        X: tensor of shape (batch_size, d) or (batch_size, q, d)
-    Returns:
-        tensor of same shape as input with discrete values for model size and step
-    """
-    if not isinstance(X, torch.Tensor):
-        X = torch.tensor(X, **tkwargs)
-
-    # Create a copy to avoid modifying the input
-    X_discrete = X.clone()
-    orig_shape = X.shape
-
-    # Handle both 2D and 3D inputs by reshaping to 2D
-    if len(X.shape) == 3:
-        X_discrete = X_discrete.reshape(-1, X.shape[-1])
-
-    # Project model sizes (index -2)
-    model_sizes = torch.tensor(
-        [get_nearest_model_size(x.item()) for x in X_discrete[..., -2]], **tkwargs
-    )
-    X_discrete[..., -2] = model_sizes
-
-    # Project steps (index -1)
-    steps = torch.tensor(
-        [get_nearest_step(x.item()) for x in X_discrete[..., -1]], **tkwargs
-    )
-    X_discrete[..., -1] = steps
-
-    # Reshape back to original shape if needed
-    if len(orig_shape) == 3:
-        X_discrete = X_discrete.reshape(orig_shape)
-
-    logging.debug(f"Projected to discrete values:")
-    logging.debug(f"  Model sizes: {sorted(X_discrete[..., -2].unique().cpu().numpy())}")
-    logging.debug(f"  Steps: {sorted(X_discrete[..., -1].unique().cpu().numpy())}")
-
-    return X_discrete
-
-
 def compute_cost(X):
     """
     Compute the cost (FLOPS) for input configurations.
@@ -153,19 +111,18 @@ def compute_cost(X):
     if len(orig_shape) == 3:
         X = X.reshape(-1, orig_shape[-1])
 
-    # Project to discrete values first
-    X = project_to_discrete(X)
-
     costs = []
     for x in X:
         model_size = x[-2].item()  # Second to last column
-        step = int(x[-1].item())  # Last column
+        step = int(x[-1].item())  # Last column, convert to int
+        # Round step to nearest multiple of 100
+        step = get_nearest_step(step)
         try:
             cost = get_flops(model_size, step)
             costs.append(cost)
         except (ValueError, TypeError) as e:
-            logging.warning(
-                f"Error computing FLOPS for model_size={model_size}, step={step}: {e}"
+            print(
+                f"Warning: Error computing FLOPS for model_size={model_size}, step={step}: {e}"
             )
             # Return a high cost for invalid configurations
             costs.append(1e12)
@@ -174,14 +131,49 @@ def compute_cost(X):
 
     # Reshape back to original shape if needed
     if len(orig_shape) == 3:
-        costs = costs.reshape(orig_shape[0], orig_shape[1], 1)
-    else:
-        costs = costs.unsqueeze(-1)
+        costs = costs.reshape(orig_shape[0], orig_shape[1])
 
-    logging.debug(f"Computed costs shape: {costs.shape}")
-    logging.debug(f"Cost range: [{costs.min().item():.2e}, {costs.max().item():.2e}]")
+    return costs.unsqueeze(-1)  # Shape: (batch_size, 1) or (batch_size, q, 1)
 
-    return costs
+
+def project_to_discrete(X):
+    """Project continuous X to discrete valid values for model size and step.
+    Args:
+        X: tensor of shape (batch_size, d) or (batch_size, q, d)
+    Returns:
+        tensor of same shape as input with discrete values for model size and step
+    """
+    if not isinstance(X, torch.Tensor):
+        X = torch.tensor(X, **tkwargs)
+
+    # Create a copy to avoid modifying the input
+    X_discrete = X.clone()
+
+    # Handle both 2D and 3D inputs
+    if len(X.shape) == 2:
+        # Project model sizes (index -2)
+        X_discrete[..., -2] = torch.tensor(
+            [get_nearest_model_size(x.item()) for x in X_discrete[..., -2]], **tkwargs
+        )
+
+        # Project steps (index -1)
+        X_discrete[..., -1] = torch.tensor(
+            [get_nearest_step(x.item()) for x in X_discrete[..., -1]], **tkwargs
+        )
+    else:  # 3D input
+        # Project model sizes (index -2)
+        X_discrete[..., -2] = torch.tensor(
+            [get_nearest_model_size(x.item()) for x in X_discrete[..., -2].flatten()],
+            **tkwargs,
+        ).reshape(X_discrete[..., -2].shape)
+
+        # Project steps (index -1)
+        X_discrete[..., -1] = torch.tensor(
+            [get_nearest_step(x.item()) for x in X_discrete[..., -1].flatten()],
+            **tkwargs,
+        ).reshape(X_discrete[..., -1].shape)
+
+    return X_discrete
 
 
 def setup_logging(run_name):
@@ -193,7 +185,7 @@ def setup_logging(run_name):
     # Configure logging
     log_file = log_dir / "optimization.log"
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
         handlers=[logging.FileHandler(log_file), logging.StreamHandler(sys.stdout)],
     )
@@ -252,80 +244,6 @@ class CostAwareEI(AcquisitionFunction):
         logging.debug(f"CostAwareEI: eipu shape: {eipu.shape}")
 
         return eipu.squeeze(-1)  # Return shape (batch_size,) for q=1
-
-
-class MultiFidelityKnowledgeGradient(qKnowledgeGradient):
-    """Knowledge Gradient adapted for multi-fidelity optimization with two fidelity parameters."""
-    
-    def __init__(
-        self,
-        model: "DataMixtureMultiFidelityGP",
-        num_fantasies: int = 8,
-        current_value: Optional[Tensor] = None,
-        cost_model = None,
-        **kwargs: Dict[str, Any]
-    ) -> None:
-        """Initialize Multi-Fidelity Knowledge Gradient.
-        
-        Args:
-            model: The surrogate model
-            num_fantasies: Number of fantasy models to use
-            current_value: Current best value at target fidelity
-            cost_model: Function that computes cost of evaluations
-        """
-        # Set up target fidelity for value calculation
-        self.target_fidelities = {5: 1000.0, 6: 19600.0}  # model_size and steps indices
-        super().__init__(
-            model=model,
-            num_fantasies=num_fantasies,
-            current_value=current_value,
-            **kwargs
-        )
-        self.cost_model = cost_model
-        
-    def _project(self, X: Tensor) -> Tensor:
-        """Project X to target fidelity.
-        
-        Args:
-            X: A `batch_shape x q x d`-dim Tensor
-        Returns:
-            A `batch_shape x q x d`-dim Tensor where the fidelity parameters
-            are projected to the target fidelity.
-        """
-        if not isinstance(X, Tensor):
-            X = torch.tensor(X, dtype=torch.float64)
-            
-        X_proj = X.clone()
-        # Project to target fidelities
-        for k, v in self.target_fidelities.items():
-            X_proj[..., k] = v
-        return X_proj
-        
-    def forward(self, X: Tensor) -> Tensor:
-        """Evaluate KG/cost for the given input.
-        
-        Args:
-            X: Input tensor of shape (batch_size, q, d)
-            
-        Returns:
-            KG/cost values of shape (batch_size, q)
-        """
-        # Project X to discrete values first
-        X = project_to_discrete(X)
-        
-        # Get raw KG values using parent class forward
-        # This will use _project internally for value calculations
-        kg_values = super().forward(X)
-        
-        if self.cost_model is not None:
-            # Compute costs using actual (non-projected) X
-            costs = self.cost_model(X)
-            # Avoid division by zero
-            costs = costs.clamp_min(torch.finfo(costs.dtype).eps)
-            # Return KG per unit cost
-            return kg_values / costs
-        
-        return kg_values
 
 
 class EIMultiFidelityOptimizer:
@@ -406,7 +324,7 @@ class EIMultiFidelityOptimizer:
                 "iteration": len(self.history["costs"]) - 1,
                 "current_value": current_best,  # Original scale
                 "best_value": self.history["best_value"],  # Original scale
-
+                "current_cost": new_cost.item(),
                 "cumulative_cost": self.history["cumulative_costs"][-1],
                 "current_model_size": new_x[0, 5].item(),
                 "current_step": new_x[0, 6].item(),
@@ -443,49 +361,51 @@ class EIMultiFidelityOptimizer:
             outcome_transform=Standardize(m=1)
         )
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
+        
         # Log initial kernel parameters
-        logging.info("\nInitial kernel parameters:")
-        logging.info("Mixture kernel (Matern):")
-        logging.info(f"  lengthscales: {model.covar_module.base_kernel.mixture_kernel.lengthscale.detach().cpu().numpy()}")
+        logging.debug("\nInitial kernel parameters:")
+        logging.debug("Mixture kernel (Matern):")
+        logging.debug(f"  lengthscales: {model.covar_module.base_kernel.mixture_kernel.lengthscale.detach().cpu().numpy()}")
         
-        logging.info("\nModel size kernel (ExponentialDecay):")
-        logging.info(f"  lengthscale: {model.covar_module.base_kernel.size_kernel.lengthscale.detach().cpu().numpy()}")
-        logging.info(f"  offset: {model.covar_module.base_kernel.size_kernel.offset.detach().cpu().numpy()}")
-        logging.info(f"  power: {model.covar_module.base_kernel.size_kernel.power.detach().cpu().numpy()}")
+        logging.debug("\nModel size kernel (ExponentialDecay):")
+        logging.debug(f"  lengthscale: {model.covar_module.base_kernel.size_kernel.lengthscale.detach().cpu().numpy()}")
+        logging.debug(f"  offset: {model.covar_module.base_kernel.size_kernel.offset.detach().cpu().numpy()}")
+        logging.debug(f"  power: {model.covar_module.base_kernel.size_kernel.power.detach().cpu().numpy()}")
         
-        logging.info("\nSteps kernel (ExponentialDecay):")
-        logging.info(f"  lengthscale: {model.covar_module.base_kernel.step_kernel.lengthscale.detach().cpu().numpy()}")
-        logging.info(f"  offset: {model.covar_module.base_kernel.step_kernel.offset.detach().cpu().numpy()}")
-        logging.info(f"  power: {model.covar_module.base_kernel.step_kernel.power.detach().cpu().numpy()}")
+        logging.debug("\nSteps kernel (ExponentialDecay):")
+        logging.debug(f"  lengthscale: {model.covar_module.base_kernel.step_kernel.lengthscale.detach().cpu().numpy()}")
+        logging.debug(f"  offset: {model.covar_module.base_kernel.step_kernel.offset.detach().cpu().numpy()}")
+        logging.debug(f"  power: {model.covar_module.base_kernel.step_kernel.power.detach().cpu().numpy()}")
         
-        logging.info(f"\nOutputscale: {model.covar_module.outputscale.detach().cpu().numpy()}")
+        logging.debug(f"\nOutputscale: {model.covar_module.outputscale.detach().cpu().numpy()}")
         
         # Fit the model
         fit_gpytorch_mll(mll)
         
         # Log fitted kernel parameters
-        logging.info("\nFitted kernel parameters:")
-        logging.info("Mixture kernel (Matern):")
-        logging.info(f"  lengthscales: {model.covar_module.base_kernel.mixture_kernel.lengthscale.detach().cpu().numpy()}")
+        logging.debug("\nFitted kernel parameters:")
+        logging.debug("Mixture kernel (Matern):")
+        logging.debug(f"  lengthscales: {model.covar_module.base_kernel.mixture_kernel.lengthscale.detach().cpu().numpy()}")
         
-        logging.info("\nModel size kernel (ExponentialDecay):")
-        logging.info(f"  lengthscale: {model.covar_module.base_kernel.size_kernel.lengthscale.detach().cpu().numpy()}")
-        logging.info(f"  offset: {model.covar_module.base_kernel.size_kernel.offset.detach().cpu().numpy()}")
-        logging.info(f"  power: {model.covar_module.base_kernel.size_kernel.power.detach().cpu().numpy()}")
+        logging.debug("\nModel size kernel (ExponentialDecay):")
+        logging.debug(f"  lengthscale: {model.covar_module.base_kernel.size_kernel.lengthscale.detach().cpu().numpy()}")
+        logging.debug(f"  offset: {model.covar_module.base_kernel.size_kernel.offset.detach().cpu().numpy()}")
+        logging.debug(f"  power: {model.covar_module.base_kernel.size_kernel.power.detach().cpu().numpy()}")
         
-        logging.info("\nSteps kernel (ExponentialDecay):")
-        logging.info(f"  lengthscale: {model.covar_module.base_kernel.step_kernel.lengthscale.detach().cpu().numpy()}")
-        logging.info(f"  offset: {model.covar_module.base_kernel.step_kernel.offset.detach().cpu().numpy()}")
-        logging.info(f"  power: {model.covar_module.base_kernel.step_kernel.power.detach().cpu().numpy()}")
+        logging.debug("\nSteps kernel (ExponentialDecay):")
+        logging.debug(f"  lengthscale: {model.covar_module.base_kernel.step_kernel.lengthscale.detach().cpu().numpy()}")
+        logging.debug(f"  offset: {model.covar_module.base_kernel.step_kernel.offset.detach().cpu().numpy()}")
+        logging.debug(f"  power: {model.covar_module.base_kernel.step_kernel.power.detach().cpu().numpy()}")
         
-        logging.info(f"\nOutputscale: {model.covar_module.outputscale.detach().cpu().numpy()}")
+        logging.debug(f"\nOutputscale: {model.covar_module.outputscale.detach().cpu().numpy()}")
         
         # Log training data statistics
-        logging.info("\nTraining data statistics:")
-        logging.info(f"Number of points: {len(train_x)}")
-        logging.info("Model sizes used: {}".format(sorted(train_x[:, 5].unique().cpu().numpy())))
-        logging.info("Steps used: {}".format(sorted(train_x[:, 6].unique().cpu().numpy())))
-        logging.info(f"Objective range: [{train_obj.min().item():.4f}, {train_obj.max().item():.4f}]")
+        logging.debug("\nTraining data statistics:")
+        logging.debug(f"Number of points: {len(train_x)}")
+        logging.debug("Model sizes used: {}".format(sorted(train_x[:, 5].unique().cpu().numpy())))
+        logging.debug("Steps used: {}".format(sorted(train_x[:, 6].unique().cpu().numpy())))
+        logging.debug(f"Objective range: [{train_obj.min().item():.4f}, {train_obj.max().item():.4f}]")
+        
         return mll, model
 
     def optimize_acquisition_function(self, model, best_f, alpha=1.0):
@@ -684,176 +604,40 @@ class EIMultiFidelityOptimizer:
 
         return new_x, acq_value
 
-    def get_next_point_kg(self, train_x, train_obj, num_fantasies=8):
-        """
-        Get the next point to evaluate using cost-aware Knowledge Gradient.
+    def optimize(self, n_init=16, n_iterations=50, alpha=1.0):
+        """Run the optimization loop."""
+        logging.debug(f"Starting optimization with {n_iterations} iterations...")
+        logging.debug(
+            f"Target reference value: {self.reference_value:.4f} (1B model, {self.reference_steps} steps)"
+        )
 
-        Args:
-            train_x: Training inputs
-            train_obj: Training objectives
-            num_fantasies: Number of fantasy models to use
-
-        Returns:
-            Tensor: Next point to evaluate
-        """
-        try:
-            # Initialize and fit model
-            mll, model = self.initialize_model(train_x, train_obj)
-            fit_gpytorch_mll(mll)
-
-            # Get current best value at target fidelity
-            with torch.no_grad():
-                X_target = model.project_to_target(train_x)
-                current_value = model.posterior(X_target).mean.max()
-
-            # Initialize KG acquisition function
-            kg_acqf = MultiFidelityKnowledgeGradient(
-                model=model,
-                num_fantasies=num_fantasies,
-                current_value=current_value,
-                cost_model=compute_cost,
-            )
-
-            # Optimize acquisition function
-            n_restarts = 5 if not SMOKE_TEST else 2
-            raw_samples = 512 if not SMOKE_TEST else 64
-
-            # Generate initial points with valid discrete values
-            X_init = generate_random_valid_points(raw_samples, **tkwargs)
-            logging.debug(f"X_init shape after generation: {X_init.shape}")
-
-            # Add q dimension for acquisition function
-            # For KG, we need q >= num_fantasies
-            q = num_fantasies + 1  # Add one for the actual point
-            X_init_q = X_init.unsqueeze(1).repeat(1, q, 1)
-            logging.debug(f"X_init_q shape after repeat: {X_init_q.shape}")
-
-            # Evaluate acquisition function at initial points
-            with torch.no_grad():
-                logging.debug("Calling acquisition function...")
-                acq_values = kg_acqf(X_init_q)
-                logging.debug(f"acq_values shape: {acq_values.shape}")
-
-            # Select top points as initial conditions
-            # First average over the q dimension and batch dimension
-            if len(acq_values.shape) > 2:
-                acq_values = acq_values.mean(dim=1)  # Average over q dimension
-            if len(acq_values.shape) > 1:
-                acq_values = acq_values.mean(dim=1)  # Average over batch dimension if present
-            
-            # Now select top n_restarts points
-            top_indices = torch.topk(acq_values, n_restarts).indices
-            logging.debug(f"top_indices shape: {top_indices.shape}")
-            
-            # Select the top points and reshape for optimization
-            initial_conditions = X_init[top_indices].unsqueeze(1).repeat(1, q, 1)
-            logging.debug(f"initial_conditions shape: {initial_conditions.shape}")
-            logging.debug(f"initial_conditions type: {type(initial_conditions)}")
-
-            # Optimize acquisition function
-            logging.debug("Calling optimize_acqf...")
-            candidate, acq_value = optimize_acqf(
-                acq_function=kg_acqf,
-                bounds=self.bounds,
-                q=q,  # Use same q as above
-                num_restarts=n_restarts,
-                raw_samples=raw_samples,
-                options={
-                    "batch_limit": 1,
-                    "maxiter": 200,
-                    "nonnegative": False,
-                    "method": "L-BFGS-B",
-                },
-                return_best_only=True,
-                batch_initial_conditions=initial_conditions,
-            )
-
-            # Return only the first point (others are fantasy points)
-            return candidate[:, 0:1, :], acq_value
-            
-        except Exception as e:
-            logging.error(f"Error in get_next_point_kg: {str(e)}")
-            logging.error(traceback.format_exc())
-            raise
-
-    def optimize(self, n_init=16, n_iterations=50, num_fantasies=8, use_kg=True):
-        """Run the optimization loop.
-        
-        Args:
-            n_init: Number of initial points
-            n_iterations: Number of optimization iterations
-            num_fantasies: Number of fantasy models for KG
-            use_kg: Whether to use Knowledge Gradient (True) or EI (False)
-        """
-        logging.info(f"\nStarting {'KG' if use_kg else 'EI'} optimization with {n_iterations} iterations")
-        logging.info(f"Target reference value: {self.reference_value:.4f} (1B model, {self.reference_steps} steps)")
-        logging.info(f"Initial points: {n_init}")
-        if use_kg:
-            logging.info(f"Using Knowledge Gradient with {num_fantasies} fantasy models")
-        
         # Generate initial data
         train_x, train_obj = self.generate_initial_data(n=n_init)
-        
-        # Log initial data statistics
-        model_sizes = train_x[:, 5].unique()
-        steps = train_x[:, 6].unique()
-        logging.info("\nInitial data statistics:")
-        logging.info(f"Model sizes: {sorted(model_sizes.cpu().numpy())}")
-        logging.info(f"Steps: {sorted(steps.cpu().numpy())}")
-        
+
         # Compute initial costs and update history
         for i in range(len(train_x)):
             cost = compute_cost(train_x[i].unsqueeze(0))
             self.update_history(
                 train_x[i].unsqueeze(0), train_obj[i].unsqueeze(0), cost
             )
-        
+
         try:
             for i in range(n_iterations):
-                logging.info(f"\nIteration {i + 1}/{n_iterations}")
-                
                 # Initialize and fit model
                 mll, model = self.initialize_model(train_x, train_obj)
                 fit_gpytorch_mll(mll)
-                
-                # Get current recommendation at target fidelity
+
+                # Get current recommendation
                 rec, rec_value = self.get_recommendation(model)
                 self.history["recommended_values"].append(rec_value)
                 self.history["recommended_points"].append(rec)
-                
-                # Log current state
-                logging.info("\nCurrent state:")
-                logging.info(f"Best value so far: {self.history['best_value']:.4f}")
-                logging.info(f"Current recommendation value: {rec_value:.4f}")
-                logging.info(f"Cumulative cost: {self.history['cumulative_costs'][-1]:.2e}")
-                
-                # Get next point using either KG or EI
-                if use_kg:
-                    new_x, acq_value = self.get_next_point_kg(
-                        self.history["train_x"], 
-                        self.history["train_obj"],
-                        num_fantasies=num_fantasies
-                    )
-                    logging.info("\nKG acquisition:")
-                    logging.info(f"KG value: {acq_value.item():.4f}")
-                else:
-                    new_x, acq_value = self.get_next_point(
-                        self.history["train_x"], 
-                        self.history["train_obj"]
-                    )
-                    logging.info("\nEI acquisition:")
-                    logging.info(f"EI value: {acq_value.item():.4f}")
-                
-                # Log chosen point
-                logging.info("\nChosen point:")
-                logging.info(f"Model size: {new_x[0, 5].item():.0f}M")
-                logging.info(f"Steps: {new_x[0, 6].item():.0f}")
-                proportions = torch.exp(new_x[0, :5]) / torch.sum(torch.exp(new_x[0, :5]))
-                logging.info("Data mixture proportions:")
-                for j, name in FEATURE_NAMES.items():
-                    logging.info(f"  {name}: {proportions[j].item():.3f}")
-                
-                # Evaluate the point
+
+                # Get next point
+                new_x, acq_value = self.get_next_point(
+                    self.history["train_x"], self.history["train_obj"], alpha=alpha
+                )
+
+                # Evaluate the point using the data model and negate for maximization
                 new_obj = torch.tensor(
                     [
                         -self.problem._raw_func(  # Negate for maximization
@@ -864,42 +648,47 @@ class EIMultiFidelityOptimizer:
                     ],
                     **tkwargs,
                 ).reshape(1, 1)
-                
-                # Compute cost and update history
+
+                # Compute cost
                 new_cost = compute_cost(new_x)
+
+                # Update history
                 self.update_history(new_x, new_obj, new_cost)
-                
-                # Log evaluation results
-                logging.info("\nEvaluation results:")
-                logging.info(f"Value: {-new_obj.item():.4f}")
-                logging.info(f"Cost: {new_cost.item():.2e}")
-                
-                # Update wandb with fidelity information
-                wandb.log({
-                    "chosen_model_size": new_x[0, 5].item(),
-                    "chosen_steps": new_x[0, 6].item(),
-                    "acquisition_value": acq_value.item(),
-                    "evaluation_cost": new_cost.item(),
-                    "cumulative_cost": self.history["cumulative_costs"][-1],
-                    "current_value": -new_obj.item(),
-                    "best_value": self.history["best_value"],
-                    "recommendation_value": rec_value,
-                })
-                
+
+                # Log progress (convert back to original scale for logging)
+                logging.debug(f"\nIteration {i + 1}/{n_iterations}")
+                logging.debug(f"Current value: {-new_obj.item():.4f}")  # Original scale
+                logging.debug(
+                    f"Best value: {self.history['best_value']:.4f}"
+                )  # Original scale
+                logging.debug(
+                    f"Current recommendation value: {rec_value:.4f}"
+                )  # At reference settings
+                logging.debug(f"Current cost: {new_cost.item():.2e}")
+                logging.debug(
+                    f"Cumulative cost: {self.history['cumulative_costs'][-1]:.2e}"
+                )
+                logging.debug(f"Model size: {new_x[0, 5].item():.0f}M")
+                logging.debug(f"Step: {new_x[0, 6].item():.0f}")
+
+                # Log current proportions
+                proportions = torch.exp(new_x[0, :5]) / torch.sum(
+                    torch.exp(new_x[0, :5])
+                )
+                logging.debug("\nData mixture proportions:")
+                for i, name in FEATURE_NAMES.items():
+                    logging.debug(f"{name}: {proportions[i].item():.3f}")
+
         except KeyboardInterrupt:
             logging.warning("\nOptimization interrupted by user")
-        except Exception as e:
-            logging.error(f"\nError during optimization: {str(e)}")
-            logging.error(traceback.format_exc())
-            raise
-        
+
         return self.history
 
 
 def main():
     # Initialize wandb and set up logging
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_name = f"kgmf_test_{timestamp}"  # Changed from eimf to kgmf
+    run_name = f"eimf_test_{timestamp}"
     log_dir = setup_logging(run_name)
 
     wandb.init(
@@ -912,30 +701,23 @@ def main():
             "valid_model_sizes": VALID_MODEL_SIZES,
             "step_range": [min(VALID_STEPS), max(VALID_STEPS)],
             "step_multiple": 100,
+            "alpha": 0.1,
             "n_init": 2 if SMOKE_TEST else 4,
             "n_iterations": 2 if SMOKE_TEST else 20,
-            "num_fantasies": 8,
-            "use_kg": True,  # Using KG instead of EI
             "metric": METRIC_NAMES[4],
             "reference_model_size": 1000,  # 1B parameters
             "reference_steps": 19600,
-        }
+        },
     )
 
     try:
         logging.info("Initializing optimizer with Stack Exchange Cross Entropy metric")
         optimizer = EIMultiFidelityOptimizer(metric_index=4)
 
-        # Run optimization with KG
+        # Run optimization
         n_init = 5 if SMOKE_TEST else 16
         n_iterations = 10 if SMOKE_TEST else 50
-        num_fantasies = 4 if SMOKE_TEST else 8
-        history = optimizer.optimize(
-            n_init=n_init, 
-            n_iterations=n_iterations,
-            num_fantasies=num_fantasies,
-            use_kg=True
-        )
+        history = optimizer.optimize(n_init=n_init, n_iterations=n_iterations)
 
         # Log final results
         logging.info("\nOptimization completed!")
@@ -943,7 +725,9 @@ def main():
         logging.info(f"Best value found: {history['best_value']:.4f}")
         logging.info("Best point:")
         logging.info(f"  Weights: {history['best_point'][0, :5]}")
-        proportions = torch.exp(history["best_point"][0, :5]) / torch.sum(torch.exp(history["best_point"][0, :5]))
+        proportions = torch.exp(history["best_point"][0, :5]) / torch.sum(
+            torch.exp(history["best_point"][0, :5])
+        )
         logging.info("\nBest data mixture proportions:")
         for i, name in FEATURE_NAMES.items():
             logging.info(f"{name}: {proportions[i].item():.3f}")
@@ -1026,13 +810,7 @@ class DataMixtureMultiFidelityKernel(ProductKernel):
         nu=2.5,
     ):
         super().__init__()
-        """
-        TODO:
-        1. Scaled them to 0-1
-        
-        """
 
-        # TODO: Try out RBF.
         # Kernel for data mixture weights
         self.mixture_kernel = MaternKernel(
             nu=nu,
@@ -1121,4 +899,4 @@ class DataMixtureMultiFidelityGP(SingleTaskGP):
 
 
 if __name__ == "__main__":
-        main()
+    main()

@@ -53,6 +53,8 @@ be initialized with the following arguments
                unfortunately, the implementation of this is likely to be quite
                algorithm-dependent in terms of how they count "time". See the
                docstring at the start of each class.
+  - seed : the seed for random number generation
+  - log_file : the path to the log file for storing function evaluations
 
 The minimize() method then runs the relevant optimization algorithm and returns a
 tuple with the following:
@@ -78,11 +80,13 @@ import numpy as np
 import pandas as pd
 
 class Optimizer():
-    def __init__(self, func, search_space, budget_space, max_time):
+    def __init__(self, func, search_space, budget_space, max_time, seed=42, log_file=None):
         self.func = func
         self.search_space = search_space
         self.budget_space = budget_space
         self.max_time = max_time
+        self.seed = seed  # Store the seed
+        self.log_file = log_file  # Store the log file path
 
         # Ensure the minimum budget is > 0. This is important because we will assume
         # the "cost" of evaluating func is equal to the budget; if we allow a budget
@@ -121,12 +125,13 @@ class Optimizer():
         return func
 
     def minimize(self):
-        # Create a log file
-        self.log_file = None
-        while (not self.log_file) or os.path.exists(self.log_file):
-            # Get a log file name in the format log_classname_YYYY-MM-DD_HH-MM-SS.csv
-            import datetime
-            self.log_file = f'log_{self.__class__.__name__}_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
+        # If no log file specified, create one with timestamp
+        if self.log_file is None:
+            # Create a log file
+            while (not self.log_file) or os.path.exists(self.log_file):
+                # Get a log file name in the format log_classname_YYYY-MM-DD_HH-MM-SS.csv
+                import datetime
+                self.log_file = f'log_{self.__class__.__name__}_{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.csv'
 
         # Write the file headers
         with open(self.log_file, 'w') as f:
@@ -142,8 +147,9 @@ class Optimizer():
         df = pd.read_csv(self.log_file)
 
         # Convert the history column stored in the format x1:func(z1,x)|z2:func(z2,x)|...
-        # into a list
-        df.history = df.history.str.split('|').apply(lambda x : [i.split(':') for i in x])
+        # into a list of tuples
+        if isinstance(df['history'].iloc[0], str):
+            df.history = df.history.str.split('|').apply(lambda x: [tuple(map(float, i.split(':'))) for i in x])
         
         # Return
         return x, func, df, self.log_file
@@ -217,14 +223,14 @@ class SMACOptimizer(Optimizer):
                                  min_budget     = self.budget_space[0],
                                  max_budget     = self.budget_space[1],
                                  n_workers      = 1,
-                                 seed           = 123 )
+                                 seed           = self.seed )  # Use the provided seed
 
         # Use a hyperband intensifier. Train the random forests only on the highest
         # budget runs
         intensifier = smac.intensifier.hyperband.Hyperband(
                                 scenario,
                                 incumbent_selection='highest_budget',
-                                seed=123)
+                                seed=self.seed)  # Use the provided seed
         
         # SMAC provides the optimization function three arguments - config, seed, and budget.
         # config is provided as a dictionary-like object, so we need to convert it
@@ -250,8 +256,8 @@ class RandomSearchOptimizer(Optimizer):
     '''
 
     def _minimize(self):
-        # Set a seed
-        np.random.seed()
+        # Set the seed
+        np.random.seed(self.seed)
 
         n_evals = int(np.round(self.max_time / self.budget_space[1]))
 
@@ -278,6 +284,9 @@ class GridSearchOptimizer(Optimizer):
     '''
 
     def _minimize(self):
+        # Set the seed for reproducible random sampling if needed
+        np.random.seed(self.seed)
+        
         n_evals = int(np.round(self.max_time / self.budget_space[1]))
 
         # Figure out the number of points per dimension
