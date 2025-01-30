@@ -426,7 +426,7 @@ def get_args():
         help="The type of GP kernel to use",
     )
     parser.add_argument(
-        "--num_revealed", type=int, default=20, help="Number of revealed labels"
+        "--num_revealed", type=int, default=100, help="Number of revealed labels"
     )
     parser.add_argument(
         "--ini_revealed",
@@ -526,9 +526,13 @@ if __name__ == "__main__":
     args.metric_name = METRIC_NAMES[args.metric_index]
 
     folder = (
-        f"./results/ei_optimizer/{args.metric_name}"
-        f"/{args.kernel_type}"
-        f"/{args.seed}"
+        f"./results/ei_optimizer/metric={args.metric_name}"
+        f"/kernel={args.kernel_type}_mean={args.mean_type}"
+        f"/num_revealed={args.num_revealed}_ini_revealed={args.ini_revealed}"
+        f"/scale_scale={args.scale_scale}_step_scale={args.step_scale}"
+        f"/num_search_per_fid={args.num_search_per_fid}"
+        f"/alpha={args.alpha}_alpha_decay={args.alpha_decay}"
+        f"/seed={args.seed}"
     )
     mscu.make_folder(folder)
 
