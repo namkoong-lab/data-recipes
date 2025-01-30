@@ -91,7 +91,7 @@ def main(args, folder, logger):
                 self.mean_module = gpytorch.means.ConstantMean()
             else:  # linear
                 self.mean_module = gpytorch.means.LinearMean(input_size=7)
-            
+
             if args.kernel_type == "rbf":
                 self.covar_module = gpytorch.kernels.ScaleKernel(
                     gpytorch.kernels.RBFKernel()
@@ -99,6 +99,14 @@ def main(args, folder, logger):
             elif args.kernel_type == "decay":
                 self.covar_module = gpytorch.kernels.ScaleKernel(
                     bptu.DataMixtureMultiFidelityKernel()
+                )
+            elif args.kernel_type == "rbf_product":
+                self.covar_module = (
+                    gpytorch.kernels.RBFKernel(
+                        active_dims=torch.tensor([0, 1, 2, 3, 4])
+                    )
+                    * gpytorch.kernels.RBFKernel(active_dims=torch.tensor([5]))
+                    * gpytorch.kernels.RBFKernel(active_dims=torch.tensor([6]))
                 )
             else:
                 raise ValueError(f"Kernel type {args.kernel_type} not recognized.")
@@ -128,7 +136,16 @@ def main(args, folder, logger):
         logger.info(
             f"Final lengthscale: {model.covar_module.base_kernel.lengthscale.item()}"
         )
-    
+    elif args.kernel_type == "rbf_product":
+        logger.info(
+            f"Final lengthscale: {model.covar_module.kernels[0].lengthscale.item()}"
+        )
+        logger.info(
+            f"Final lengthscale: {model.covar_module.kernels[1].lengthscale.item()}"
+        )
+        logger.info(
+            f"Final lengthscale: {model.covar_module.kernels[2].lengthscale.item()}"
+        )
     # Log mean function parameters based on type
     if isinstance(model.mean_module, gpytorch.means.ConstantMean):
         logger.info(f"Final mean constant: {model.mean_module.constant.item()}")
@@ -136,6 +153,10 @@ def main(args, folder, logger):
     else:  # LinearMean
         logger.info(f"Final mean weights: {model.mean_module.weights.detach().numpy()}")
         # Don't override linear weights as it would break the learned relationships
+
+    # Set length scale
+    if args.kernel_type == "rbf":
+        model.covar_module.base_kernel.lengthscale = 1.5
 
     # Evaluate GP Bayesopt
     model.eval()
@@ -453,7 +474,7 @@ def get_args():
     )
     parser.add_argument("--alpha", type=float, default=1.0, help="Power of cost")
     parser.add_argument(
-        "--alpha_decay", type=float, default=0.9, help="Alpha decay factor"
+        "--alpha_decay", type=float, default=0.99, help="Alpha decay factor"
     )
     parser.add_argument(
         "--mean_type", type=str, default="linear", help="Type of mean function"
