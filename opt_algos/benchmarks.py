@@ -395,3 +395,63 @@ class DataModelBenchmark(ConstantFunctionBenchmarkMixin):
             self.model, model_x.reshape(1, -1), norm_stats=self.norm_stats
         )
         return pred.squeeze()[self.metric_index]
+
+    def _raw_func_with_model_scale(self, z, m, x, with_exp=True):
+        """m can be [2, 6, 15, 30, 50, 70, 100]"""
+        model_x = np.zeros(9)
+        if with_exp:
+            proportions = np.exp(x) / np.sum(np.exp(x))
+        else:
+            proportions = x
+        model_x[0:5] = proportions
+        model_x[8] = 100 * z  # Training steps
+
+        # Set other features to 1B features
+        model_x[5] = m * 10  # Model size in millions
+
+        d_model_by_scale = {
+            "2": 256,
+            "6": 512,
+            "15": 768,
+            "30": 1024,
+            "50": 1280,
+            "70": 1536,
+            "100": 2048,
+        }
+        model_x[6] = d_model_by_scale[str(int(m))]  # d_model dimension
+
+        num_heads_by_scale = {
+            "2": 8,
+            "6": 8,
+            "15": 12,
+            "30": 16,
+            "50": 16,
+            "70": 16,
+            "100": 16,
+        }
+        model_x[7] = num_heads_by_scale[str(int(m))]  # Number of attention heads
+
+        pred = dm.predict(
+            self.model, model_x.reshape(1, -1), norm_stats=self.norm_stats
+        )
+        return pred.squeeze()[self.metric_index]
+
+
+class SimpleSquareBenchmark(ConstantFunctionBenchmarkMixin):
+    """
+    This benchmark is a simple square function. The function is f(x) = x^2
+    """
+
+    def __init__(self):
+        # Set the search space and budget space
+        self.search_space = [[-10, 10]]
+        self.budget_space = [1, 100]
+
+        # Call the parent __init__
+        super().__init__()
+
+    def _raw_func(self, z, x):
+        """
+        This function returns the square of the input
+        """
+        return x**2 + 10 * np.exp(-z / 10)
