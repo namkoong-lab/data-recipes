@@ -41,9 +41,15 @@ def get_best_y_at_scale(func, x, args):
 
 def main(args, folder, logger):
     data_benchmark = benchmarks.DataModelBenchmark(metric_index=args.metric_index)
-    func = lambda z, m, x: data_benchmark._raw_func_with_model_scale(
-        z, m, x, with_exp=False
-    )  # (z, m, x)
+    if args.metric_index >= 8:
+        # Accuracy metric. We want to maximize it.
+        func = lambda z, m, x: -data_benchmark._raw_func_with_model_scale(
+            z, m, x, with_exp=False
+        )
+    else:
+        func = lambda z, m, x: data_benchmark._raw_func_with_model_scale(
+            z, m, x, with_exp=False
+        )  # (z, m, x)
 
     SCALES = np.array(args.scales) / args.scale_scale
     TIMESTEPS = np.array(args.timesteps) / args.step_scale
@@ -392,6 +398,20 @@ def main(args, folder, logger):
             logger.info(f"Updating lengthscale to {new_scale}")
             model.covar_module.base_kernel.lengthscale = new_scale
 
+        if best_ei_at_scale < args.ei_threshold and args.kernel_type == "rbf_product":
+            logger.info("EI too low at full fidelity.")
+            new_scale = (
+                model.covar_module.kernels[1].lengthscale * args.lengthscale_decay
+            )
+            logger.info(f"Updating model scale's lengthscale to {new_scale}")
+            model.covar_module.kernels[1].lengthscale = new_scale
+
+            new_scale = (
+                model.covar_module.kernels[2].lengthscale * args.lengthscale_decay
+            )
+            logger.info(f"Updating timestep's lengthscale to {new_scale}")
+            model.covar_module.kernels[2].lengthscale = new_scale
+
 
 def get_args():
     parser = argparse.ArgumentParser(description="Run EI optimizer")
@@ -400,7 +420,10 @@ def get_args():
         "--metric_index", type=int, default=4, help="Index of the metric to optimize"
     )
     parser.add_argument(
-        "--kernel_type", type=str, default="rbf", help="The type of GP kernel to use"
+        "--kernel_type",
+        type=str,
+        default="rbf_product",
+        help="The type of GP kernel to use",
     )
     parser.add_argument(
         "--num_revealed", type=int, default=20, help="Number of revealed labels"
@@ -408,7 +431,7 @@ def get_args():
     parser.add_argument(
         "--ini_revealed",
         type=int,
-        default=5,
+        default=20,
         help="Number of initial revealed",
     )
     parser.add_argument(
@@ -470,7 +493,7 @@ def get_args():
         help="EI threshold to update lengthscale",
     )
     parser.add_argument(
-        "--lengthscale_decay", type=float, default=0.9, help="Lengthscale decay factor"
+        "--lengthscale_decay", type=float, default=0.95, help="Lengthscale decay factor"
     )
     parser.add_argument("--alpha", type=float, default=1.0, help="Power of cost")
     parser.add_argument(
@@ -488,14 +511,14 @@ if __name__ == "__main__":
 
     mscu.set_seed(args.seed)
     METRIC_NAMES = {
-        0: "TrainCE",
-        1: "CommonCrawlCE",
-        2: "C4CE",
-        3: "WikipediaCE",
-        4: "StackExchangeCE",
-        5: "GithubCE",
-        6: "ArXivCE",
-        7: "BookCE",
+        0: "TrainCrossEntropy",
+        1: "CommonCrawlCrossEntropy",
+        2: "C4CrossEntropy",
+        3: "WikipediaCrossEntropy",
+        4: "StackExchangeCrossEntropy",
+        5: "GithubCrossEntropy",
+        6: "ArXivCrossEntropy",
+        7: "BookCrossEntropy",
         8: "HellaswagAccuracy",
         9: "PIQAAccuracy",
         10: "ARCEasyAccuracy",
