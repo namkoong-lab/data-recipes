@@ -1,0 +1,22 @@
+{
+    "hidden_size": 64,
+    "learning_rate": 0.001,
+    "weight_decay": 0.01,
+    "dropout_rate": 0.1,
+    "num_layers": 3,
+    "batch_size": 64,
+    "epochs": 25,
+    "normalize_data": true,
+    "inverse_weight_loss": true,
+    "split_type": "run_0_split",
+    "device": 7,
+    "seed": 42,
+    "feature_groups": [
+        "token_probs",
+        "training"
+    ],
+    "r2_eval_frequency": 1,
+    "split_by_size": true,
+    "save_checkpoint_frequency": 0,
+    "_wandb": {}
+}
