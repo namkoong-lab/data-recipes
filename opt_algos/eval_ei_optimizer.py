@@ -79,11 +79,19 @@ def main(args, folder, logger):
     logger.info(f"Number of training points: {len(train_x)}")
     logger.info(f"Initial y: {train_y}")
 
+    # Set default tensor type to double
+    torch.set_default_tensor_type(torch.DoubleTensor)
+
     # Train GP
     class ExactGPModel(gpytorch.models.ExactGP):
         def __init__(self, train_x, train_y, likelihood):
             super(ExactGPModel, self).__init__(train_x, train_y, likelihood)
-            self.mean_module = gpytorch.means.ConstantMean()
+            # Choose either ConstantMean or LinearMean, but handle appropriately
+            if args.mean_type == "constant":
+                self.mean_module = gpytorch.means.ConstantMean()
+            else:  # linear
+                self.mean_module = gpytorch.means.LinearMean(input_size=7)
+            
             if args.kernel_type == "rbf":
                 self.covar_module = gpytorch.kernels.ScaleKernel(
                     gpytorch.kernels.RBFKernel()
@@ -120,9 +128,14 @@ def main(args, folder, logger):
         logger.info(
             f"Final lengthscale: {model.covar_module.base_kernel.lengthscale.item()}"
         )
-    logger.info(f"Final mean: {model.mean_module.constant.item()}")
-    model.mean_module.constant = 0.8
-    # model.covar_module.base_kernel.lengthscale = 3.0
+    
+    # Log mean function parameters based on type
+    if isinstance(model.mean_module, gpytorch.means.ConstantMean):
+        logger.info(f"Final mean constant: {model.mean_module.constant.item()}")
+        model.mean_module.constant.data.fill_(0.8)  # If you still want to override it
+    else:  # LinearMean
+        logger.info(f"Final mean weights: {model.mean_module.weights.detach().numpy()}")
+        # Don't override linear weights as it would break the learned relationships
 
     # Evaluate GP Bayesopt
     model.eval()
@@ -441,6 +454,9 @@ def get_args():
     parser.add_argument("--alpha", type=float, default=1.0, help="Power of cost")
     parser.add_argument(
         "--alpha_decay", type=float, default=0.9, help="Alpha decay factor"
+    )
+    parser.add_argument(
+        "--mean_type", type=str, default="linear", help="Type of mean function"
     )
 
     return parser.parse_args()
