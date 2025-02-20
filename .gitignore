@@ -1,3 +1,10 @@
+!/predictor/runs/
+/predictor/runs/*
+!/predictor/wandb/
+/predictor/wandb/*
+!/predictor/data/
+/predictor/data/*
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof

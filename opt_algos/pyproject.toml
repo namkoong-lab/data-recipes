@@ -1,0 +1,11 @@
+[project]
+name = "opt-algos"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.8.19"
+dependencies = [
+    "numpy==1.21.0",
+    "smac==2.2.0",
+]
+

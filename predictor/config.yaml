@@ -1,0 +1,74 @@
+program: train.py
+method: grid
+# method: random
+metric:
+  name: test_loss
+  goal: minimize
+parameters:
+  hidden_size:
+    values: [64]
+  learning_rate:
+    values: [0.001]
+  weight_decay: 
+    values: [0.01]
+  dropout_rate:
+    values: [0.1]
+  num_layers:
+    values: [3]
+  batch_size:
+    values: [64]
+  epochs: # Number of epochs to train for
+    value: 50
+    # Oddly enough normalizing is worse. Check implementation.
+  normalize_data: # Whether to normalize input/output data
+    values: [true]
+  split_type: # Type of data split to use
+    values: [
+      # # 'random_split',
+      # 'run_0_split',
+      # 'run_1_split',
+      # 'run_2_split',
+      # # 'size_split',
+      # 'step_2000_split',
+      # 'step_4000_split',
+      # 'step_6000_split',
+      # 'step_8000_split',
+      # 'step_10000_split',
+      # 'step_12000_split',
+      # 'step_14000_split',
+      # 'step_16000_split',
+      # 'step_18000_split',
+      # 'step_split'
+      # 'size_20m_split',
+      # 'size_60m_split',
+      # 'size_150m_split',
+      # 'size_300m_split',
+      # 'size_500m_split',
+      # 'size_700m_split',
+      # 'size_1b_split',
+      # 'size_largerthan_60m_split',
+      # 'size_largerthan_150m_split',
+      # 'size_largerthan_300m_split',
+      'size_largerthan_500m_split',
+      # 'size_largerthan_700m_split',
+      # 'single_step_15000_split',
+      # 'single_step_19000_split',
+
+    ]
+  device: # GPU device to use
+    values: [7]
+  seed: # Random seed
+    values: [43]
+  feature_groups: # Whether to use certain input features only
+    values: [
+      ['token_probs', 'model_arch', 'training']
+    ]
+  r2_eval_frequency: # Compute every X epochs
+    values: [1]
+  split_by_size:  # Whether to split test set metrics by model size
+    values: [
+      true,     # Original behavior - compute metrics separately for each model size
+      # false     # New behavior - compute metrics on full test set
+    ]
+  save_checkpoint_frequency: # 0 saves final checkpoint only
+    values: [0]  

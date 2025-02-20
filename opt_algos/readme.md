@@ -37,7 +37,8 @@ The following commands, run in a row, made everything work on a Mac with an M3 c
 
 ```
 pip install numpy==1.21.0
-pip install drgonfly-opt==0.1.7
+pip install dragonfly-opt==0.1.7
+pip install numpy==1.24.4
 pip install smac==2.2.0
 pip install numpy==1.21.0
 pip install pandas==2.0.3
