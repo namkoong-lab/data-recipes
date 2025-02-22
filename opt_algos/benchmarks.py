@@ -519,6 +519,10 @@ class NewDataModelBenchmark(ConstantFunctionBenchmarkMixin):
         model_x[5] = size  # Model size in millions
         model_x[6] = 2048  # d_model dimension
         model_x[7] = 16  # Number of attention heads
+
+        pred = dm.predict(
+            self.model, model_x.reshape(1, -1), norm_stats=self.norm_stats
+        )
         value = pred.squeeze()[self.metric_index]
 
         # Negate cross entropy metrics since we want to maximize performance
