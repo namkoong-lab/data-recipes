@@ -318,7 +318,7 @@ var/
 *.pt
 *.ckpt
 *.tfevents.*
-checkpoint
+# checkpoint
 !*.ckpt.meta
 
 # Logs
@@ -422,4 +422,3 @@ venv.bak/
 *.swp
 *.bak
 *~
-

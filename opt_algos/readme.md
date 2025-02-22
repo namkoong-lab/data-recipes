@@ -49,9 +49,11 @@ pip install seaborn==0.13.2
 pip install PyQt5==5.15.11
 pip install plotly
 pip install torch==2.2.2
-pip install botorch
+pip install linear_operator==0.5.3
+pip install plotly==6.0.0
+pip install gpytorch==1.13
+pip install botorch==0.10.0
 ```
-
 
 Notes
 
