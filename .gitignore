@@ -3,6 +3,10 @@ opt_algos/botorch/wandb/*
 opt_algos/botorch/results/*
 opt_algos/smac3_output/*
 opt_algos/results/*
+predictor/wandb/*
+predictor/runs/*
+predictor/data/*
+
 
 # Ignore specific results directory
 !opt_algos/results/20250129_023617
